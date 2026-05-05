@@ -1,0 +1,107 @@
+/* App.css - 亲自然设计补充样式 */
+
+/* 全局重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(168, 198, 160, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #A8C6A0 0%, #7D9B76 100%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #7D9B76 0%, #5B7B5E 100%);
+}
+
+/* 选择文本颜色 */
+::selection {
+  background: rgba(168, 198, 160, 0.3);
+  color: #3D5A40;
+}
+
+/* 链接样式 */
+a {
+  transition: color 200ms ease;
+}
+
+a:hover {
+  color: #5B7B5E !important;
+}
+
+/* 按钮焦点样式 */
+button:focus-visible {
+  outline: 2px solid #7D9B76;
+  outline-offset: 2px;
+}
+
+/* 输入框样式 */
+input[type="file"] {
+  display: none;
+}
+
+/* 图片加载占位 */
+img {
+  background: linear-gradient(135deg, #E8F0E5 0%, #D4E5D0 100%);
+}
+
+/* 响应式字体 */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 1920px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+/* 动画优化 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 照片悬停遮罩 */
+.photo-hover-overlay {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.biophilic-photo-card:hover .photo-hover-overlay {
+  opacity: 1 !important;
+}
+
+/* 打印样式 */
+@media print {
+  .biophilic-header,
+  .plant-decoration,
+  .plant-decoration-left {
+    display: none !important;
+  }
+  
+  .biophilic-card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}

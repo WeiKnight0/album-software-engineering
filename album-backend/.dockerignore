@@ -1,0 +1,8 @@
+target/
+.git/
+.idea/
+*.iml
+photo.db
+uploads/
+covers/
+test_data/

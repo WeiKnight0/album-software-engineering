@@ -1,0 +1,79 @@
+# Environment
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.local
+application-local.properties
+
+# Runtime data persisted by docker-compose
+data/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/build/
+
+# Java / Maven
+**/target/
+**/out/
+*.jar
+*.war
+*.ear
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+**/.mvn/timing.properties
+**/.mvn/wrapper/maven-wrapper.jar
+
+# Python
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/wheels/
+
+# Databases and generated storage
+*.db
+*.sqlite
+**/uploads/
+**/covers/
+**/qdrant_data/
+**/ingest_metrics.json
+
+# RAG
+/album-rag/dev/output/
+
+# IDE / OS
+.idea/
+.vscode/
+.settings/
+.classpath
+.project
+*.iws
+*.iml
+*.ipr
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# models
+/face-recognition/*.zip

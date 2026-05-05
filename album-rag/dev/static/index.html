@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图像知识库 - 前端查看器</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --primary: #5B7B5E;
+            --primary-light: #7D9B76;
+            --bg: #f5f7fa;
+            --card-bg: #fff;
+            --text: #333;
+            --text-secondary: #666;
+            --border: #e8e8e8;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+        }
+        .app {
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 340px;
+            background: var(--card-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, #f0f5f0 0%, #e8f0e8 100%);
+        }
+        .sidebar-header h1 {
+            font-size: 18px;
+            color: var(--primary);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sidebar-header p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .search-box {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .search-box input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-box input:focus {
+            border-color: var(--primary-light);
+        }
+        .image-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .image-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 4px;
+        }
+        .image-item:hover {
+            background: #f0f5f0;
+        }
+        .image-item.active {
+            background: #e8f0e8;
+            border: 1px solid var(--primary-light);
+        }
+        .image-item img {
+            width: 56px;
+            height: 56px;
+            object-fit: cover;
+            border-radius: 6px;
+            flex-shrink: 0;
+            background: #eee;
+        }
+        .image-item .info {
+            flex: 1;
+            min-width: 0;
+        }
+        .image-item .info .name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .image-item .info .preview {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.4;
+        }
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 28px;
+        }
+        .detail-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            max-width: 960px;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+        .detail-image {
+            width: 100%;
+            max-height: 520px;
+            object-fit: contain;
+            background: #f0f0f0;
+            display: block;
+        }
+        .detail-body {
+            padding: 28px;
+        }
+        .detail-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        .detail-path {
+            font-size: 12px;
+            color: #888;
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            word-break: break-all;
+        }
+        .detail-desc {
+            font-size: 15px;
+            line-height: 1.8;
+            color: var(--text);
+            white-space: pre-wrap;
+        }
+        .detail-desc h3, .detail-desc h4 {
+            margin-top: 16px;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #888;
+        }
+        .empty-state h2 {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            flex-direction: column;
+            gap: 16px;
+            color: var(--text-secondary);
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e8e8e8;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+        .badge-llm { background: #e6f4ea; color: #1e8e3e; }
+        .badge-ocr { background: #fff3e0; color: #f57c00; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>📷 图像知识库</h1>
+                <p id="status">正在加载...</p>
+            </div>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索描述内容..." oninput="filterItems()">
+            </div>
+            <div class="image-list" id="imageList"></div>
+        </aside>
+        <main class="main" id="main">
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在加载知识库数据...</p>
+            </div>
+            <div class="empty-state" id="empty" style="display:none">
+                <h2>👈</h2>
+                <p>请选择一张图片查看完整描述</p>
+            </div>
+            <div class="detail-card" id="detail" style="display:none">
+                <img class="detail-image" id="detail-img" src="" alt="">
+                <div class="detail-body">
+                    <div class="detail-title" id="detail-name"></div>
+                    <div class="detail-path" id="detail-path"></div>
+                    <div class="detail-desc" id="detail-desc"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let allItems = [];
+        let currentIndex = 0;
+
+        async function loadData() {
+            try {
+                const res = await fetch('/items');
+                const data = await res.json();
+                allItems = data.items || [];
+                document.getElementById('status').textContent = `共 ${allItems.length} 张图片 · 点击左侧查看详情`;
+                document.getElementById('loading').style.display = 'none';
+                if (allItems.length === 0) {
+                    document.getElementById('empty').style.display = 'flex';
+                    document.getElementById('empty').innerHTML = '<h2>📭</h2><p>知识库为空，请先运行导入命令</p>';
+                } else {
+                    renderList(allItems);
+                    showItem(0);
+                }
+            } catch (e) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('main').innerHTML = `<div class="empty-state"><h2>⚠️</h2><p>加载失败: ${e.message}</p></div>`;
+            }
+        }
+
+        function renderList(items) {
+            const container = document.getElementById('imageList');
+            container.innerHTML = items.map((item, idx) => {
+                const preview = item.description.replace(/\n/g, ' ').slice(0, 90) + '...';
+                const isOcr = item.description.startsWith('【本地OCR描述】');
+                const badge = isOcr ? '<span class="badge badge-ocr">OCR</span>' : '<span class="badge badge-llm">LLM</span>';
+                return `
+                    <div class="image-item ${idx === currentIndex ? 'active' : ''}" data-idx="${idx}" onclick="showItem(${idx})">
+                        <img src="/image/${encodeURIComponent(item.name)}" alt="${item.name}" loading="lazy">
+                        <div class="info">
+                            <div class="name">${item.name}${badge}</div>
+                            <div class="preview">${preview}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showItem(index) {
+            if (index < 0 || index >= allItems.length) return;
+            currentIndex = index;
+            const item = allItems[index];
+
+            document.querySelectorAll('.image-item').forEach((el, i) => {
+                el.classList.toggle('active', i === index);
+            });
+
+            document.getElementById('empty').style.display = 'none';
+            document.getElementById('detail').style.display = 'block';
+            document.getElementById('detail-img').src = `/image/${encodeURIComponent(item.name)}`;
+            document.getElementById('detail-name').textContent = item.name;
+            document.getElementById('detail-path').textContent = item.path;
+            document.getElementById('detail-desc').textContent = item.description;
+        }
+
+        function filterItems() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allItems.filter(item =>
+                item.name.toLowerCase().includes(query) ||
+                item.description.toLowerCase().includes(query)
+            );
+            renderList(filtered);
+            if (filtered.length > 0) {
+                showItem(0);
+            } else {
+                document.getElementById('detail').style.display = 'none';
+                document.getElementById('empty').style.display = 'flex';
+                document.getElementById('empty').innerHTML = '<h2>🔍</h2><p>没有找到匹配的内容</p>';
+            }
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') {
+                showItem(Math.min(currentIndex + 1, allItems.length - 1));
+            } else if (e.key === 'ArrowUp') {
+                showItem(Math.max(currentIndex - 1, 0));
+            }
+        });
+
+        loadData();
+    </script>
+</body>
+</html>

@@ -1,0 +1,546 @@
+/* 亲自然（Biophilic）设计主题 — 增强版 */
+
+/* 色彩系统 - 绿植色盘 */
+:root {
+  /* 主色调 */
+  --moss-green: #5B7B5E;
+  --leaf-green: #7D9B76;
+  --sage-green: #A8C6A0;
+  --earth-brown: #8B7355;
+  --sky-blue: #B4D6E4;
+  --sunlight: #F5F0E6;
+  
+  /* 辅助色 */
+  --forest-dark: #3D5A40;
+  --meadow-light: #C8D9C0;
+  --bark-brown: #6B5B4F;
+  --cloud-white: #FAFAF8;
+  --shadow-soft: rgba(91, 123, 94, 0.15);
+  --shadow-medium: rgba(91, 123, 94, 0.25);
+  
+  /* 渐变背景 */
+  --gradient-morning: linear-gradient(135deg, #F5F0E6 0%, #E8F0E5 50%, #D4E5D0 100%);
+  --gradient-leaf: linear-gradient(135deg, #A8C6A0 0%, #7D9B76 100%);
+  --gradient-sky: linear-gradient(180deg, #E8F4F8 0%, #B4D6E4 100%);
+  --gradient-earth: linear-gradient(135deg, #8B7355 0%, #6B5B4F 100%);
+  
+  /* 交互时长 */
+  --transition-fast: 150ms;
+  --transition-normal: 200ms;
+  --transition-slow: 300ms;
+}
+
+/* 全局样式 */
+* {
+  transition: background-color var(--transition-normal) ease-in-out,
+              border-color var(--transition-normal) ease-in-out,
+              box-shadow var(--transition-normal) ease-in-out,
+              opacity var(--transition-normal) ease-in-out;
+}
+
+body {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--gradient-morning);
+  min-height: 100vh;
+  color: var(--forest-dark);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 纸纤维纹理背景 */
+.biophilic-page {
+  background: 
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"),
+    var(--gradient-morning);
+  background-blend-mode: overlay;
+  min-height: 100vh;
+}
+
+/* 有机曲线卡片 */
+.biophilic-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  border-radius: 24px 24px 24px 4px;
+  border: 1px solid rgba(168, 198, 160, 0.3);
+  box-shadow: 
+    0 4px 20px var(--shadow-soft),
+    0 1px 3px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  position: relative;
+}
+
+.biophilic-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gradient-leaf);
+  opacity: 0.6;
+}
+
+/* 叶脉轻纹理 */
+.biophilic-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 Q40 20 30 35 Q20 20 30 5' fill='none' stroke='%23A8C6A0' stroke-width='0.5' opacity='0.1'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* 按钮样式 - 有机形状 */
+.biophilic-button {
+  background: var(--gradient-leaf);
+  border: none;
+  border-radius: 20px 20px 20px 4px;
+  color: white;
+  padding: 12px 28px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(125, 155, 118, 0.3);
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--transition-normal) ease, 
+              box-shadow var(--transition-normal) ease,
+              filter var(--transition-normal) ease;
+}
+
+.biophilic-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left var(--transition-slow);
+}
+
+.biophilic-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(125, 155, 118, 0.4);
+  filter: brightness(1.05);
+}
+
+.biophilic-button:hover::before {
+  left: 100%;
+}
+
+.biophilic-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 8px rgba(125, 155, 118, 0.3);
+}
+
+.biophilic-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
+
+.biophilic-button.secondary {
+  background: transparent;
+  border: 2px solid var(--leaf-green);
+  color: var(--forest-dark);
+}
+
+.biophilic-button.secondary:hover {
+  background: rgba(125, 155, 118, 0.1);
+}
+
+/* 小型按钮 */
+.biophilic-button-sm {
+  padding: 8px 18px;
+  font-size: 13px;
+  border-radius: 16px 16px 16px 4px;
+}
+
+/* 上传区域 - 有机拖拽区 */
+.biophilic-upload-area {
+  background: rgba(255, 255, 255, 0.6);
+  border: 2px dashed var(--sage-green);
+  border-radius: 32px 32px 32px 8px;
+  padding: 48px 32px;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-normal) ease;
+}
+
+.biophilic-upload-area::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(168, 198, 160, 0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity var(--transition-slow);
+}
+
+.biophilic-upload-area:hover {
+  border-color: var(--leaf-green);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.biophilic-upload-area:hover::before {
+  opacity: 1;
+}
+
+.biophilic-upload-area.dragover {
+  border-color: var(--moss-green);
+  background: rgba(168, 198, 160, 0.2);
+  transform: scale(1.02);
+}
+
+/* 植物图标装饰 */
+.plant-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  position: relative;
+}
+
+.plant-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: var(--leaf-green);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* 标题样式 */
+.biophilic-title {
+  color: var(--forest-dark);
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  position: relative;
+  display: inline-block;
+}
+
+.biophilic-title::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 40px;
+  height: 3px;
+  background: var(--gradient-leaf);
+  border-radius: 2px;
+}
+
+/* 图片卡片 */
+.biophilic-photo-card {
+  background: white;
+  border-radius: 16px 16px 16px 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px var(--shadow-soft);
+  transition: transform var(--transition-normal) ease, 
+              box-shadow var(--transition-normal) ease;
+}
+
+.biophilic-photo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(91, 123, 94, 0.2);
+}
+
+.biophilic-photo-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 16px 16px 0 0;
+}
+
+/* 导航栏 */
+.biophilic-header {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(168, 198, 160, 0.2);
+  padding: 16px 32px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.biophilic-header h1 {
+  color: var(--forest-dark);
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.biophilic-header h1::before {
+  content: '🌿';
+  font-size: 28px;
+}
+
+/* 侧边栏 */
+.biophilic-sidebar {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(168, 198, 160, 0.2);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 101;
+  transition: width var(--transition-slow) ease;
+}
+
+.biophilic-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 12px;
+}
+
+.biophilic-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px 14px 14px 4px;
+  cursor: pointer;
+  color: var(--bark-brown);
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  transition: all var(--transition-fast) ease;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.biophilic-sidebar-item:hover {
+  background: rgba(168, 198, 160, 0.15);
+  color: var(--forest-dark);
+  filter: brightness(1.05);
+}
+
+.biophilic-sidebar-item.active {
+  background: var(--gradient-leaf);
+  color: white;
+  box-shadow: 0 4px 12px rgba(125, 155, 118, 0.3);
+}
+
+.biophilic-sidebar-item.active:hover {
+  filter: brightness(1.08);
+}
+
+/* 进度条 */
+.biophilic-progress {
+  height: 8px;
+  background: rgba(168, 198, 160, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.biophilic-progress-bar {
+  height: 100%;
+  background: var(--gradient-leaf);
+  border-radius: 4px;
+  transition: width var(--transition-normal) ease;
+  position: relative;
+}
+
+.biophilic-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* 空状态 */
+.biophilic-empty {
+  text-align: center;
+  padding: 64px 32px;
+  color: var(--earth-brown);
+}
+
+.biophilic-empty-icon {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 24px;
+  opacity: 0.4;
+}
+
+/* 模态框 */
+.biophilic-modal .ant-modal-content {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(91, 123, 94, 0.2);
+}
+
+.biophilic-modal .ant-modal-header {
+  background: transparent;
+  border-bottom: 1px solid rgba(168, 198, 160, 0.2);
+  border-radius: 24px 24px 0 0;
+}
+
+/* 标签页 */
+.biophilic-tabs {
+  display: flex;
+  gap: 8;
+  padding: 4px;
+  background: rgba(125, 155, 118, 0.1);
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.biophilic-tab {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  background: transparent;
+  color: var(--moss-green);
+  transition: all var(--transition-normal) ease;
+}
+
+.biophilic-tab.active {
+  background: var(--gradient-leaf);
+  color: white;
+  box-shadow: 0 2px 8px rgba(93, 122, 86, 0.3);
+}
+
+/* 列表项 */
+.biophilic-list-item {
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 14px 14px 14px 4px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(168, 198, 160, 0.15);
+  transition: all var(--transition-fast) ease;
+  cursor: pointer;
+}
+
+.biophilic-list-item:hover {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 12px var(--shadow-soft);
+  transform: translateY(-1px);
+}
+
+/* 人物卡片 */
+.biophilic-face-card {
+  background: white;
+  border-radius: 20px 20px 20px 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px var(--shadow-soft);
+  transition: all var(--transition-normal) ease;
+  cursor: pointer;
+}
+
+.biophilic-face-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(91, 123, 94, 0.2);
+}
+
+/* 输入框样式覆盖 */
+.biophilic-input {
+  border-radius: 14px 14px 14px 4px !important;
+  border: 1px solid rgba(168, 198, 160, 0.4) !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  transition: all var(--transition-normal) ease !important;
+}
+
+.biophilic-input:focus {
+  border-color: var(--leaf-green) !important;
+  box-shadow: 0 0 0 3px rgba(125, 155, 118, 0.15) !important;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .biophilic-card {
+    border-radius: 20px 20px 20px 4px;
+  }
+  
+  .biophilic-button {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+  
+  .biophilic-upload-area {
+    padding: 32px 20px;
+  }
+  
+  .biophilic-sidebar {
+    width: 64px !important;
+  }
+  
+  .biophilic-sidebar-item span {
+    display: none;
+  }
+}
+
+/* 动画 */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.animate-breathe {
+  animation: breathe 4s ease-in-out infinite;
+}
+
+@keyframes leafSway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+.animate-sway {
+  animation: leafSway 5s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(168, 198, 160, 0.4);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 198, 160, 0.6);
+}

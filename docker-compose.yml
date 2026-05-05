@@ -1,0 +1,51 @@
+services:
+  frontend:
+    build:
+      context: ./album-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_started
+
+  backend:
+    build:
+      context: ./album-backend
+    ports:
+      - "8082:8082"
+    env_file:
+      - ./album-backend/.env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:sqlite:/data/photo.db
+      UPLOAD_BASE_PATH: /data/uploads
+      UPLOAD_TEMP_PATH: /data/uploads/temp
+      FACE_MODEL_BASE_URL: http://face-recognition:8001
+      FACE_MODEL_COVERS_DIR: /data/covers
+      RAG_BASE_URL: http://rag:8003
+    volumes:
+      - ./data/backend:/data
+    depends_on:
+      face-recognition:
+        condition: service_started
+      rag:
+        condition: service_started
+
+  face-recognition:
+    build:
+      context: ./face-recognition
+    ports:
+      - "8001:8001"
+
+  rag:
+    build:
+      context: ./album-rag
+    ports:
+      - "8003:8003"
+    env_file:
+      - ./album-rag/.env
+    environment:
+      QDRANT_PATH: /data/qdrant
+      COLLECTION_NAME: photo_rag
+      EMBEDDING_MODEL: /app/models/bge-small-zh-v1.5
+    volumes:
+      - ./data/rag:/data
