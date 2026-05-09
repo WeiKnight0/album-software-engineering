@@ -31,14 +31,21 @@ def face_area(bbox: dict) -> int:
     return max(1, int(bbox["w"])) * max(1, int(bbox["h"]))
 
 
-# Initialize InsightFace with GPU first, fallback to CPU.
-face_app = FaceAnalysis(name="buffalo_l", root="./")
-try:
-    face_app.prepare(ctx_id=0, det_size=(640, 640))
-    logger.info("InsightFace prepared with GPU ctx_id=0")
-except Exception:
-    face_app.prepare(ctx_id=-1, det_size=(640, 640))
-    logger.info("InsightFace prepared with CPU ctx_id=-1")
+# Lazy initialization: model is downloaded by entrypoint.sh before first request.
+_face_app = None
+
+
+def get_face_app():
+    global _face_app
+    if _face_app is None:
+        _face_app = FaceAnalysis(name="buffalo_l", root="./")
+        try:
+            _face_app.prepare(ctx_id=0, det_size=(640, 640))
+            logger.info("InsightFace prepared with GPU ctx_id=0")
+        except Exception:
+            _face_app.prepare(ctx_id=-1, det_size=(640, 640))
+            logger.info("InsightFace prepared with CPU ctx_id=-1")
+    return _face_app
 
 
 @app.post("/api/v1/infer")
@@ -56,7 +63,7 @@ async def infer_faces(
     if img is None:
         raise HTTPException(status_code=400, detail="invalid image format")
 
-    detected_faces = face_app.get(img)
+    detected_faces = get_face_app().get(img)
     if not detected_faces:
         return {
             "status": "success",

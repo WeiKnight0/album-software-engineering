@@ -35,6 +35,8 @@ services:
       context: ./face-recognition
     ports:
       - "8001:8001"
+    volumes:
+      - ./data/face-recognition/models:/app/models
 
   rag:
     build:
