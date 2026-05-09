@@ -87,7 +87,10 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
   const [tasks, setTasks] = useState<UploadTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [uploadKey, setUploadKey] = useState(0);
   const isUploadingRef = useRef(false);
+  const pendingFilesRef = useRef<File[]>([]);
+  const processTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchTasks = async () => {
     try {
@@ -134,6 +137,7 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
       console.error('Upload task error:', error);
     } finally {
       isUploadingRef.current = false;
+      setUploadKey(prev => prev + 1);
     }
   };
 
@@ -194,18 +198,33 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
       {/* Drag upload area */}
       <div className="biophilic-card" style={{ padding: 32, marginBottom: 24 }}>
         <Upload.Dragger
+          key={uploadKey}
           multiple
           accept="image/*"
           showUploadList={false}
-          fileList={[]}
-          beforeUpload={() => false}
-          onChange={({ fileList: newFileList }) => {
-            const files = newFileList
-              .map((f: any) => f.originFileObj)
+          beforeUpload={(_file, fileList) => {
+            const files = fileList
+              .map((f: any) => f.originFileObj || f)
               .filter((f: any): f is File => f instanceof File);
-            if (files.length > 0) {
-              handleCreateTask(files);
-            }
+
+            // 去重累积
+            const existingKeys = new Set(pendingFilesRef.current.map(f => f.name + f.size + f.lastModified));
+            files.forEach(f => {
+              if (!existingKeys.has(f.name + f.size + f.lastModified)) {
+                pendingFilesRef.current.push(f);
+              }
+            });
+
+            if (processTimerRef.current) clearTimeout(processTimerRef.current);
+            processTimerRef.current = setTimeout(() => {
+              const allFiles = [...pendingFilesRef.current];
+              pendingFilesRef.current = [];
+              if (allFiles.length > 0 && !isUploadingRef.current) {
+                handleCreateTask(allFiles);
+              }
+            }, 500);
+
+            return false;
           }}
         >
           <div style={{ padding: 20 }}>

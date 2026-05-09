@@ -11,6 +11,8 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   references?: ChatReference[];
+  /** 打字动画的完整原文，保存到 localStorage 前用此字段补全 */
+  fullContent?: string;
 }
 
 interface ChatReference {
@@ -27,15 +29,52 @@ interface AIChatProps {
 
 const TYPING_SPEED_MS = 25;
 
+const STORAGE_KEY = (uid: number) => `ai_chat_messages_${uid}`;
+
+const getDefaultMessages = (): ChatMessage[] => [
+  {
+    id: '1',
+    role: 'assistant',
+    content: '你好！我是你的智能相册助手 🌿\n\n我将以你的相册内容作为知识库与你交流，可以回答关于照片的问题、分享拍摄建议，或者陪你聊聊记录中的点滴回忆。有什么我可以帮助你的吗？',
+    timestamp: new Date()
+  }
+];
+
+const loadMessages = (uid?: number): ChatMessage[] => {
+  if (!uid) return getDefaultMessages();
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY(uid));
+    if (!raw) return getDefaultMessages();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return getDefaultMessages();
+    return parsed.map((m: any) => ({
+      ...m,
+      timestamp: new Date(m.timestamp)
+    }));
+  } catch {
+    return getDefaultMessages();
+  }
+};
+
+const saveMessages = (uid: number, msgs: ChatMessage[], typingId: string | null) => {
+  try {
+    // 如果有正在打字的消息，保存前补全为完整原文，避免下次加载出现半截消息
+    const toSave = msgs.map(m => {
+      if (m.id === typingId && m.fullContent) {
+        return { ...m, content: m.fullContent };
+      }
+      return m;
+    });
+    localStorage.setItem(STORAGE_KEY(uid), JSON.stringify(toSave));
+  } catch {
+    // ignore quota exceeded
+  }
+};
+
 const AIChat: React.FC<AIChatProps> = ({ userId, embedded, onBack }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: '你好！我是你的智能相册助手 🌿\n\n我将以你的相册内容作为知识库与你交流，可以回答关于照片的问题、分享拍摄建议，或者陪你聊聊记录中的点滴回忆。有什么我可以帮助你的吗？',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessages(userId));
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [typingMsgId, setTypingMsgId] = useState<string | null>(null);
@@ -45,6 +84,18 @@ const AIChat: React.FC<AIChatProps> = ({ userId, embedded, onBack }) => {
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    if (userId) {
+      saveMessages(userId, messages, typingMsgId);
+    }
+  }, [messages, userId, typingMsgId]);
+
+  // Reload messages when userId changes (e.g. login/logout)
+  useEffect(() => {
+    setMessages(loadMessages(userId));
+  }, [userId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -125,10 +176,12 @@ const AIChat: React.FC<AIChatProps> = ({ userId, embedded, onBack }) => {
       const msgId = (Date.now() + 1).toString();
 
       // Add empty assistant message first (for references display)
+      // fullContent 保留完整原文，供组件卸载后恢复使用
       setMessages(prev => [...prev, {
         id: msgId,
         role: 'assistant',
         content: '',
+        fullContent: answer,
         timestamp: new Date(),
         references: data?.references || []
       }]);
