@@ -78,8 +78,7 @@ docker compose up -d backend
 后端不再在普通启动流程中自动创建默认用户。首次部署后执行：
 
 ```bash
-cd album-backend
-./scripts/init-default-users.sh
+./scripts/init-users.sh
 ```
 
 脚本会幂等创建 RBAC 基础角色、权限、默认超级管理员和普通非会员用户。
@@ -95,7 +94,7 @@ INIT_USER_USERNAME=demo \
 INIT_USER_PASSWORD='change-this-user-password' \
 INIT_USER_EMAIL=demo@example.com \
 INIT_USER_NICKNAME='Demo User' \
-./scripts/init-default-users.sh
+./scripts/init-users.sh
 ```
 
 未设置环境变量时，脚本会使用以下开发默认账号：

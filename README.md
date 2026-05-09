@@ -60,8 +60,7 @@ http://localhost
 默认账号不再由后端启动时自动创建。首次启动前可执行初始化脚本：
 
 ```bash
-cd album-backend
-./scripts/init-default-users.sh
+./scripts/init-users.sh
 ```
 
 生产环境建议通过环境变量覆盖默认账号密码：
@@ -73,7 +72,7 @@ INIT_ADMIN_EMAIL=admin@example.com \
 INIT_USER_USERNAME=demo \
 INIT_USER_PASSWORD='change-this-user-password' \
 INIT_USER_EMAIL=demo@example.com \
-./scripts/init-default-users.sh
+./scripts/init-users.sh
 ```
 
 未设置环境变量时，脚本会使用以下开发默认账号。

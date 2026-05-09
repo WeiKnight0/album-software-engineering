@@ -30,6 +30,28 @@ services:
       rag:
         condition: service_started
 
+  init-users:
+    build:
+      context: ./album-backend
+    env_file:
+      - ./album-backend/.env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:sqlite:/data/photo.db
+      UPLOAD_BASE_PATH: /data/uploads
+      UPLOAD_TEMP_PATH: /data/uploads/temp
+      FACE_MODEL_BASE_URL: http://face-recognition:8001
+      FACE_MODEL_COVERS_DIR: /data/covers
+      RAG_BASE_URL: http://rag:8003
+      app.bootstrap.enabled: "true"
+    volumes:
+      - ./data/backend:/data
+    depends_on:
+      face-recognition:
+        condition: service_started
+      rag:
+        condition: service_started
+    command: ["--app.bootstrap.enabled=true", "--server.port=0"]
+
   face-recognition:
     build:
       context: ./face-recognition
