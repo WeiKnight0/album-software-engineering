@@ -3,8 +3,8 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src \
-    PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
-    UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+    PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple \
+    UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple \
     HF_ENDPOINT=https://hf-mirror.com
 
 WORKDIR /app
