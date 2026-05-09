@@ -3,6 +3,7 @@ package com.photo.backend.user.controller;
 import com.photo.backend.common.dto.ApiResponse;
 import com.photo.backend.common.entity.PaymentOrder;
 import com.photo.backend.asset.service.PaymentService;
+import com.photo.backend.user.service.CurrentUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,18 +18,17 @@ public class PaymentController {
     @Autowired
     private PaymentService paymentService;
 
+    @Autowired
+    private CurrentUserService currentUserService;
+
     // [新增] 创建支付订单
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<PaymentOrder>> createOrder(@RequestBody Map<String, Object> request) {
         try {
-            Integer userId = (Integer) request.get("userId");
+            Integer userId = currentUserService.getCurrentUserId();
             Integer amount = (Integer) request.get("amount");
             Integer months = (Integer) request.get("months");
 
-            if (userId == null) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("用户ID不能为空", "USER_ID_REQUIRED"));
-            }
             if (months == null) months = 1;
             if (amount == null) amount = 2000; // 默认 20 元 = 2000 分
 
@@ -60,8 +60,9 @@ public class PaymentController {
 
     // [新增] 查询用户最近一笔已支付订单（用于前端判断当前套餐类型）
     @GetMapping("/latest")
-    public ResponseEntity<ApiResponse<PaymentOrder>> getLatestPaidOrder(@RequestParam Integer userId) {
+    public ResponseEntity<ApiResponse<PaymentOrder>> getLatestPaidOrder() {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             PaymentOrder order = paymentService.getLatestPaidOrder(userId);
             if (order == null) {
                 return ResponseEntity.ok(ApiResponse.success(null, "暂无支付记录"));

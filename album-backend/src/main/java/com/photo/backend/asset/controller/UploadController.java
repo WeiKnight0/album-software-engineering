@@ -3,6 +3,7 @@ package com.photo.backend.asset.controller;
 import com.photo.backend.asset.dto.*;
 import com.photo.backend.asset.service.UploadService;
 import com.photo.backend.common.dto.ApiResponse;
+import com.photo.backend.user.service.CurrentUserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,10 +23,14 @@ public class UploadController {
     @Autowired
     private UploadService uploadService;
 
+    @Autowired
+    private CurrentUserService currentUserService;
+
     @PostMapping("/tasks")
     public ResponseEntity<ApiResponse<UploadTaskDTO>> createTask(@RequestBody CreateTaskRequest request) {
         try {
-            if (request.getUserId() == null || request.getFiles() == null || request.getFiles().isEmpty()) {
+            request.setUserId(currentUserService.getCurrentUserId());
+            if (request.getFiles() == null || request.getFiles().isEmpty()) {
                 return ResponseEntity.badRequest()
                     .body(ApiResponse.error("参数不完整", "INVALID_REQUEST"));
             }
@@ -41,8 +46,9 @@ public class UploadController {
     }
 
     @GetMapping("/tasks")
-    public ResponseEntity<ApiResponse<List<TaskProgressDTO>>> getAllTasks(@RequestParam Integer userId) {
+    public ResponseEntity<ApiResponse<List<TaskProgressDTO>>> getAllTasks() {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             List<TaskProgressDTO> tasks = uploadService.getAllTasksByUserId(userId);
             return ResponseEntity.ok(ApiResponse.success(tasks));
         } catch (Exception e) {
@@ -55,11 +61,11 @@ public class UploadController {
     @PostMapping("/files/{taskId}")
     public ResponseEntity<ApiResponse<UploadFileDTO>> uploadFile(
             @PathVariable String taskId,
-            @RequestParam Integer userId,
             @RequestParam(value = "fileIndex", required = false) Integer fileIndex,
             @RequestParam(value = "folderId", required = false) Integer folderId,
             @RequestParam("file") MultipartFile file) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest()
                     .body(ApiResponse.error("文件不能为空", "EMPTY_FILE"));
@@ -82,9 +88,9 @@ public class UploadController {
 
     @GetMapping("/tasks/{taskId}")
     public ResponseEntity<ApiResponse<TaskProgressDTO>> getTaskProgress(
-            @PathVariable String taskId,
-            @RequestParam Integer userId) {
+            @PathVariable String taskId) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             TaskProgressDTO progress = uploadService.getTaskProgress(taskId, userId);
             return ResponseEntity.ok(ApiResponse.success(progress));
         } catch (IllegalArgumentException e) {
@@ -102,11 +108,7 @@ public class UploadController {
             @PathVariable String taskId,
             @RequestBody Map<String, Integer> request) {
         try {
-            Integer userId = request.get("userId");
-            if (userId == null) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("用户ID不能为空", "INVALID_REQUEST"));
-            }
+            Integer userId = currentUserService.getCurrentUserId();
 
             uploadService.pauseTask(taskId, userId);
             return ResponseEntity.ok(ApiResponse.success("任务已暂停"));
@@ -128,11 +130,7 @@ public class UploadController {
             @PathVariable String taskId,
             @RequestBody Map<String, Integer> request) {
         try {
-            Integer userId = request.get("userId");
-            if (userId == null) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("用户ID不能为空", "INVALID_REQUEST"));
-            }
+            Integer userId = currentUserService.getCurrentUserId();
 
             uploadService.resumeTask(taskId, userId);
             return ResponseEntity.ok(ApiResponse.success("任务已继续"));
@@ -151,9 +149,9 @@ public class UploadController {
 
     @DeleteMapping("/tasks/{taskId}")
     public ResponseEntity<ApiResponse<Void>> cancelTask(
-            @PathVariable String taskId,
-            @RequestParam Integer userId) {
+            @PathVariable String taskId) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             uploadService.cancelTask(taskId, userId);
             return ResponseEntity.ok(ApiResponse.success("任务已取消"));
         } catch (IllegalArgumentException e) {
@@ -171,11 +169,7 @@ public class UploadController {
             @PathVariable String taskId,
             @RequestBody Map<String, Integer> request) {
         try {
-            Integer userId = request.get("userId");
-            if (userId == null) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("用户ID不能为空", "INVALID_REQUEST"));
-            }
+            Integer userId = currentUserService.getCurrentUserId();
 
             uploadService.retryTask(taskId, userId);
             return ResponseEntity.ok(ApiResponse.success("任务重试成功"));
@@ -194,9 +188,9 @@ public class UploadController {
 
     @DeleteMapping("/tasks/{taskId}/cleanup")
     public ResponseEntity<ApiResponse<Void>> cleanupTempFiles(
-            @PathVariable String taskId,
-            @RequestParam Integer userId) {
+            @PathVariable String taskId) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             uploadService.cleanupTempFiles(taskId, userId);
             return ResponseEntity.ok(ApiResponse.success("临时文件已清理"));
         } catch (Exception e) {

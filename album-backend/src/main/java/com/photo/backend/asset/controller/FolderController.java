@@ -3,6 +3,7 @@ package com.photo.backend.asset.controller;
 import com.photo.backend.common.dto.ApiResponse;
 import com.photo.backend.common.entity.Folder;
 import com.photo.backend.asset.service.FolderService;
+import com.photo.backend.user.service.CurrentUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,10 +18,13 @@ public class FolderController {
     @Autowired
     private FolderService folderService;
 
+    @Autowired
+    private CurrentUserService currentUserService;
+
     @PostMapping
     public ResponseEntity<ApiResponse<Folder>> createFolder(@RequestBody Map<String, Object> request) {
         try {
-            Integer userId = (Integer) request.get("userId");
+            Integer userId = currentUserService.getCurrentUserId();
             Integer parentId = (Integer) request.get("parentId");
             String name = (String) request.get("name");
 
@@ -35,10 +39,10 @@ public class FolderController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Folder>>> getFolders(
-            @RequestParam Integer userId,
             @RequestParam(required = false) Integer parentId,
             @RequestParam(required = false, defaultValue = "all") String status) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             List<Folder> folders;
             if ("recycle".equals(status)) {
                 folders = folderService.getRecycleBinFolders(userId);
@@ -55,8 +59,9 @@ public class FolderController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Folder>> getFolder(@PathVariable Integer id, @RequestParam Integer userId) {
+    public ResponseEntity<ApiResponse<Folder>> getFolder(@PathVariable Integer id) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             Folder folder = folderService.getFolderById(id, userId);
             return ResponseEntity.ok(ApiResponse.success(folder));
         } catch (Exception e) {
@@ -69,7 +74,7 @@ public class FolderController {
             @PathVariable Integer id,
             @RequestBody Map<String, Object> request) {
         try {
-            Integer userId = (Integer) request.get("userId");
+            Integer userId = currentUserService.getCurrentUserId();
             String name = (String) request.get("name");
 
             Folder folder = folderService.renameFolder(id, userId, name);
@@ -81,8 +86,9 @@ public class FolderController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteFolder(@PathVariable Integer id, @RequestParam Integer userId) {
+    public ResponseEntity<ApiResponse<Void>> deleteFolder(@PathVariable Integer id) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             folderService.deleteFolder(id, userId);
             return ResponseEntity.ok(ApiResponse.success("文件夹删除成功"));
         } catch (Exception e) {
@@ -96,7 +102,7 @@ public class FolderController {
             @PathVariable Integer id,
             @RequestBody Map<String, Object> request) {
         try {
-            Integer userId = (Integer) request.get("userId");
+            Integer userId = currentUserService.getCurrentUserId();
             Boolean restore = (Boolean) request.get("restore");
             String imageId = (String) request.get("imageId");
 

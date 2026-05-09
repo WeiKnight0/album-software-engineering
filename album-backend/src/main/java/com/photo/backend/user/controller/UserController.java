@@ -2,6 +2,7 @@ package com.photo.backend.user.controller;
 
 import com.photo.backend.common.dto.ApiResponse;
 import com.photo.backend.common.entity.User;
+import com.photo.backend.user.dto.CurrentUserDTO;
 import com.photo.backend.user.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -26,16 +27,10 @@ public class UserController {
 
     // [新增] 根据 Token 获取当前登录用户信息（包含会员状态）
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<User>> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<ApiResponse<CurrentUserDTO>> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(ApiResponse.error("未提供有效的Token", "TOKEN_MISSING"));
-            }
-            String token = authHeader.substring(7);
-            Integer userId = userService.getUserIdFromToken(token);
-            User user = userService.getUserById(userId);
-            return ResponseEntity.ok(ApiResponse.success(user));
+            User user = userService.getUserFromAuthHeader(authHeader);
+            return ResponseEntity.ok(ApiResponse.success(userService.getCurrentUserDTO(user)));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error("获取用户信息失败: " + e.getMessage(), "GET_USER_FAILED"));

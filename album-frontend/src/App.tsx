@@ -22,6 +22,7 @@ import SettingsPanel from './components/SettingsPanel';
 import ProfilePanel from './components/ProfilePanel';
 import Membership from './components/Membership';
 import RecycleBin from './components/RecycleBin';
+import AdminDashboard from './components/AdminDashboard';
 import { userAPI } from './services/api';
 import './styles/biophilic-theme.css';
 import './App.css';
@@ -34,6 +35,9 @@ export interface AppUser {
   isMember?: boolean;
   membershipExpireAt?: string;
   storageLimit?: number;
+  isSuperAdmin?: boolean;
+  roles?: string[];
+  permissions?: string[];
 }
 
 export type AppView = 'home' | 'chat' | 'faces' | 'gallery' | 'recycle' | 'search' | 'transfer' | 'settings' | 'membership' | 'profile';
@@ -118,6 +122,12 @@ function App() {
 
   if (!isLoggedIn || !currentUser) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  const isAdmin = currentUser.isSuperAdmin || currentUser.roles?.includes('SUPER_ADMIN') || currentUser.roles?.includes('ADMIN');
+
+  if (isAdmin) {
+    return <AdminDashboard currentUser={currentUser} onLogout={handleLogout} />;
   }
 
   const sidebarWidth = 220;

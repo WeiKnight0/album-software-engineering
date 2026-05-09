@@ -36,6 +36,9 @@ public class User {
     @Column(name = "status", columnDefinition = "TINYINT DEFAULT 1")
     private Integer status = 1;
 
+    @Column(name = "is_super_admin", columnDefinition = "TINYINT(1) DEFAULT 0")
+    private Boolean isSuperAdmin = false;
+
     @Column(name = "storage_used", columnDefinition = "BIGINT DEFAULT 0")
     private Long storageUsed = 0L;
 
@@ -110,6 +113,14 @@ public class User {
 
     public void setStatus(Integer status) {
         this.status = status;
+    }
+
+    public Boolean getIsSuperAdmin() {
+        return isSuperAdmin;
+    }
+
+    public void setIsSuperAdmin(Boolean isSuperAdmin) {
+        this.isSuperAdmin = isSuperAdmin;
     }
 
     public Long getStorageUsed() {

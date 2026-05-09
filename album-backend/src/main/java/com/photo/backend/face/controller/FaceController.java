@@ -13,6 +13,7 @@ import com.photo.backend.face.service.FaceDeleteService;
 import com.photo.backend.face.service.FaceRecognitionPersistenceService;
 import com.photo.backend.face.service.FaceService;
 import com.photo.backend.face.service.FaceMergeService;
+import com.photo.backend.user.service.CurrentUserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -39,19 +40,22 @@ public class FaceController {
 	private final FaceRepository faceRepository;
 	private final FaceAppearanceRepository faceAppearanceRepository;
 	private final FaceRecognitionPersistenceService faceRecognitionPersistenceService;
+	private final CurrentUserService currentUserService;
 
 	public FaceController(
 		FaceService faceService,
 		ImageService imageService,
 		FaceRepository faceRepository,
 		FaceAppearanceRepository faceAppearanceRepository,
-		FaceRecognitionPersistenceService faceRecognitionPersistenceService
+		FaceRecognitionPersistenceService faceRecognitionPersistenceService,
+		CurrentUserService currentUserService
 	) {
 		this.faceService = faceService;
 		this.imageService = imageService;
 		this.faceRepository = faceRepository;
 		this.faceAppearanceRepository = faceAppearanceRepository;
 		this.faceRecognitionPersistenceService = faceRecognitionPersistenceService;
+		this.currentUserService = currentUserService;
 	}
 
 	/**
@@ -64,7 +68,7 @@ public class FaceController {
 	public ResponseEntity<ApiResponse<Map<String, Object>>> updateFaceRemark(@RequestBody FaceRemarkRequest request) {
 		try {
 			// 调用业务层完成名称备注更新。
-			Face updated = faceService.updateFaceName(requireUserId(request.userId()), request.faceId(), request.faceName());
+			Face updated = faceService.updateFaceName(currentUserId(), request.faceId(), request.faceName());
 			Map<String, Object> payload = new LinkedHashMap<>();
 			payload.put("status_code", "UPDATED");
 			payload.put("face_id", updated.getId());
@@ -93,7 +97,7 @@ public class FaceController {
 	public ResponseEntity<ApiResponse<Map<String, Object>>> mergeFaces(@RequestBody FaceMergeRequest request) {
 		try {
 			FaceMergeService.FaceMergeResult result = faceService.mergeFaces(
-				requireUserId(request.userId()),
+				currentUserId(),
 				request.faceIds(),
 				request.selectedName()
 			);
@@ -134,7 +138,7 @@ public class FaceController {
 	@PostMapping("/delete")
 	public ResponseEntity<ApiResponse<Map<String, Object>>> deleteFaceClassification(@RequestBody FaceDeleteRequest request) {
 		try {
-			FaceDeleteService.FaceDeleteResult result = faceService.deleteFaceClassification(requireUserId(request.userId()), request.faceId());
+			FaceDeleteService.FaceDeleteResult result = faceService.deleteFaceClassification(currentUserId(), request.faceId());
 
 			return ResponseEntity.ok(ApiResponse.success(
 				Map.of(
@@ -160,7 +164,7 @@ public class FaceController {
 	@PostMapping("/analyze")
 	public ResponseEntity<ApiResponse<Map<String, Object>>> analyzeImage(@RequestBody AnalyzeImageRequest request) {
 		try {
-			Integer userId = requireUserId(request.userId());
+			Integer userId = currentUserId();
 			File imageFile = imageService.getImageFile(request.imageId(), userId);
 			if (imageFile == null || !imageFile.exists()) {
 				return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -184,9 +188,9 @@ public class FaceController {
 	 * 获取当前用户的全部人物分类列表。
 	 */
 	@GetMapping("/list")
-	public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listFaces(@RequestParam Integer userId) {
+	public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listFaces() {
 		try {
-			List<Face> faces = faceService.listFacesByUserId(requireUserId(userId));
+			List<Face> faces = faceService.listFacesByUserId(currentUserId());
 			List<Map<String, Object>> payload = faces.stream().map(face -> {
 				Map<String, Object> map = new LinkedHashMap<>();
 				map.put("face_id", face.getId());
@@ -210,10 +214,9 @@ public class FaceController {
 	 */
 	@GetMapping("/{faceId}/cover")
 	public ResponseEntity<byte[]> getFaceCover(
-			@PathVariable Integer faceId,
-			@RequestParam Integer userId) {
+			@PathVariable Integer faceId) {
 		try {
-			Face face = faceRepository.findByIdAndUserId(faceId, requireUserId(userId))
+			Face face = faceRepository.findByIdAndUserId(faceId, currentUserId())
 					.orElseThrow(() -> new NoSuchElementException("Face not found"));
 			File coverFile = resolveFaceCoverFile(face);
 			if (coverFile == null || !coverFile.exists()) {
@@ -273,10 +276,9 @@ public class FaceController {
 	 */
 	@GetMapping("/{faceId}/images")
 	public ResponseEntity<ApiResponse<List<Image>>> getFaceImages(
-			@PathVariable Integer faceId,
-			@RequestParam Integer userId) {
+			@PathVariable Integer faceId) {
 		try {
-			List<Image> images = faceService.getImagesByFaceId(requireUserId(userId), faceId);
+			List<Image> images = faceService.getImagesByFaceId(currentUserId(), faceId);
 			return ResponseEntity.ok(ApiResponse.success(images, "人物图片查询成功"));
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage(), "INVALID_PARAM"));
@@ -296,7 +298,7 @@ public class FaceController {
 	@PostMapping("/search")
 	public ResponseEntity<ApiResponse<Map<String, Object>>> searchFaceCategories(@RequestBody FaceSearchRequest request) {
 		try {
-			FaceService.FaceNameSearchResult result = faceService.searchFaceCategoryIds(request.userId(), request.faceName());
+			FaceService.FaceNameSearchResult result = faceService.searchFaceCategoryIds(currentUserId(), request.faceName());
 			return ResponseEntity.ok(ApiResponse.success(
 				Map.of(
 					"status_code", result.statusCode(),
@@ -364,10 +366,7 @@ public class FaceController {
 	) {
 	}
 
-	private Integer requireUserId(Integer userId) {
-		if (userId == null || userId <= 0) {
-			throw new IllegalArgumentException("userId is invalid");
-		}
-		return userId;
+	private Integer currentUserId() {
+		return currentUserService.getCurrentUserId();
 	}
 }

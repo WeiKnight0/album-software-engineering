@@ -57,11 +57,39 @@ docker compose ps
 http://localhost
 ```
 
-默认测试账号：
+默认账号不再由后端启动时自动创建。首次启动前可执行初始化脚本：
+
+```bash
+cd album-backend
+./scripts/init-default-users.sh
+```
+
+生产环境建议通过环境变量覆盖默认账号密码：
+
+```bash
+INIT_ADMIN_USERNAME=admin \
+INIT_ADMIN_PASSWORD='change-this-admin-password' \
+INIT_ADMIN_EMAIL=admin@example.com \
+INIT_USER_USERNAME=demo \
+INIT_USER_PASSWORD='change-this-user-password' \
+INIT_USER_EMAIL=demo@example.com \
+./scripts/init-default-users.sh
+```
+
+未设置环境变量时，脚本会使用以下开发默认账号。
+
+默认超级管理员：
 
 ```text
-username: testuser
-password: test123
+username: superadmin
+password: admin123456
+```
+
+默认普通非会员用户：
+
+```text
+username: normaluser
+password: user123456
 ```
 
 ## 运行数据

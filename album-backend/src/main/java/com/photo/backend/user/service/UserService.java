@@ -2,6 +2,7 @@ package com.photo.backend.user.service;
 
 import com.photo.backend.common.entity.User;
 import com.photo.backend.common.repository.UserRepository;
+import com.photo.backend.user.dto.CurrentUserDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -18,6 +20,9 @@ public class UserService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private RbacService rbacService;
 
     private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final String JWT_SECRET = "your-very-secret-key-for-jwt-token-generation-must-be-long-enough";
@@ -38,7 +43,33 @@ public class UserService {
         logger.debug("Encoded password length: {}", encodedPassword.length());
         user.setPasswordHash(encodedPassword);
 
-        return userRepository.save(user);
+        user.setIsSuperAdmin(false);
+        user.setIsMember(false);
+        User savedUser = userRepository.save(user);
+        rbacService.assignRole(savedUser.getId(), RbacService.ROLE_USER);
+        return savedUser;
+    }
+
+    public User createUser(String username, String password, String email, String nickname, boolean isAdmin, boolean isSuperAdmin) {
+        if (userRepository.existsByUsername(username)) {
+            throw new RuntimeException("Username already exists");
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new RuntimeException("Email already exists");
+        }
+
+        User user = new User();
+        user.setUsername(username);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setEmail(email);
+        user.setNickname(nickname != null ? nickname : "");
+        user.setStatus(1);
+        user.setIsMember(false);
+        user.setStorageLimit(1073741824L);
+        user.setIsSuperAdmin(isSuperAdmin);
+        User savedUser = userRepository.save(user);
+        rbacService.assignRole(savedUser.getId(), isSuperAdmin ? RbacService.ROLE_SUPER_ADMIN : (isAdmin ? RbacService.ROLE_ADMIN : RbacService.ROLE_USER));
+        return savedUser;
     }
 
     public String login(String username, String password) {
@@ -100,6 +131,48 @@ public class UserService {
             throw new RuntimeException("User not found");
         }
         return userOptional.get();
+    }
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public User getUserFromAuthHeader(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new RuntimeException("Missing token");
+        }
+        Integer userId = getUserIdFromToken(authHeader.substring(7));
+        User user = getUserById(userId);
+        if (user.getStatus() != null && user.getStatus() != 1) {
+            throw new RuntimeException("Account is disabled");
+        }
+        return user;
+    }
+
+    public CurrentUserDTO getCurrentUserDTO(User user) {
+        return CurrentUserDTO.from(user, rbacService.getRoleCodes(user.getId()), rbacService.getPermissionCodes(user.getId()));
+    }
+
+    public User updateUserStatus(Integer userId, Integer status) {
+        User user = getUserById(userId);
+        user.setStatus(status);
+        return userRepository.save(user);
+    }
+
+    public User updateMembership(Integer userId, Boolean isMember, java.time.LocalDateTime expireAt) {
+        User user = getUserById(userId);
+        user.setIsMember(Boolean.TRUE.equals(isMember));
+        user.setMembershipExpireAt(Boolean.TRUE.equals(isMember) ? expireAt : null);
+        if (Boolean.TRUE.equals(isMember)) {
+            user.setStorageLimit(50L * 1024 * 1024 * 1024);
+        }
+        return userRepository.save(user);
+    }
+
+    public User updateStorageLimit(Integer userId, Long storageLimit) {
+        User user = getUserById(userId);
+        user.setStorageLimit(storageLimit);
+        return userRepository.save(user);
     }
 
     public void updateStorageUsed(Integer userId, long additionalSize) {

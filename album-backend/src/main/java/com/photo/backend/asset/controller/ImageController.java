@@ -6,6 +6,7 @@ import com.photo.backend.common.entity.ImageAnalysis;
 import com.photo.backend.common.repository.ImageAnalysisRepository;
 import com.photo.backend.asset.service.ImageService;
 import com.photo.backend.asset.service.UploadService;
+import com.photo.backend.user.service.CurrentUserService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,11 +37,14 @@ public class ImageController {
     @Autowired
     private ImageAnalysisRepository imageAnalysisRepository;
 
+    @Autowired
+    private CurrentUserService currentUserService;
+
     @PostMapping
     public ResponseEntity<ApiResponse<Image>> uploadImage(@RequestParam("file") MultipartFile file,
-                                       @RequestParam("userId") Integer userId,
                                        @RequestParam(value = "folderId", required = false) Integer folderId) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             Image image = imageService.uploadImage(file, userId, folderId);
 
             try {
@@ -64,10 +68,10 @@ public class ImageController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Image>>> getImages(
-            @RequestParam Integer userId,
             @RequestParam(required = false) Integer folderId,
             @RequestParam(required = false, defaultValue = "all") String status) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             List<Image> images;
             if ("recycle".equals(status)) {
                 images = imageService.getRecycleBinImages(userId);
@@ -84,8 +88,9 @@ public class ImageController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Image>> getImage(@PathVariable String id, @RequestParam Integer userId) {
+    public ResponseEntity<ApiResponse<Image>> getImage(@PathVariable String id) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             Image image = imageService.getImageById(id, userId);
             return ResponseEntity.ok(ApiResponse.success(image));
         } catch (Exception e) {
@@ -97,9 +102,9 @@ public class ImageController {
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteImage(
             @PathVariable String id,
-            @RequestParam Integer userId,
             @RequestParam(required = false, defaultValue = "false") Boolean permanent) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             if (permanent) {
                 imageService.permanentlyDeleteImage(id, userId);
             } else {
@@ -117,8 +122,7 @@ public class ImageController {
             @PathVariable String id,
             @RequestBody Map<String, Object> request) {
         try {
-            Object userIdObj = request.get("userId");
-            Integer userId = userIdObj instanceof Number ? ((Number) userIdObj).intValue() : null;
+            Integer userId = currentUserService.getCurrentUserId();
             Object folderIdObj = request.get("folderId");
             Integer newFolderId = folderIdObj instanceof Number ? ((Number) folderIdObj).intValue() : null;
             Boolean restore = (Boolean) request.get("restore");
@@ -147,8 +151,7 @@ public class ImageController {
         try {
             @SuppressWarnings("unchecked")
             List<String> imageIds = (List<String>) request.get("imageIds");
-            Object userIdObj = request.get("userId");
-            Integer userId = userIdObj instanceof Number ? ((Number) userIdObj).intValue() : null;
+            Integer userId = currentUserService.getCurrentUserId();
             Object folderIdObj = request.get("folderId");
             Integer newFolderId = folderIdObj instanceof Number ? ((Number) folderIdObj).intValue() : null;
 
@@ -175,8 +178,7 @@ public class ImageController {
         try {
             @SuppressWarnings("unchecked")
             List<String> imageIds = (List<String>) request.get("imageIds");
-            Object userIdObj = request.get("userId");
-            Integer userId = userIdObj instanceof Number ? ((Number) userIdObj).intValue() : null;
+            Integer userId = currentUserService.getCurrentUserId();
             Boolean permanent = (Boolean) request.getOrDefault("permanent", false);
 
             if (imageIds == null || imageIds.isEmpty()) {
@@ -197,8 +199,9 @@ public class ImageController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getImageStats(@RequestParam Integer userId) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getImageStats() {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             long totalImages = imageService.getTotalImages(userId);
             long totalStorage = imageService.getTotalStorageUsed(userId);
             return ResponseEntity.ok(ApiResponse.success(Map.of(
@@ -212,8 +215,9 @@ public class ImageController {
     }
 
     @GetMapping("/{id}/download")
-    public ResponseEntity<?> downloadImage(@PathVariable String id, @RequestParam Integer userId) {
+    public ResponseEntity<?> downloadImage(@PathVariable String id) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             Image image = imageService.getImageById(id, userId);
             File file = imageService.getImageFile(id, userId);
             if (file == null || !file.exists()) {
@@ -233,8 +237,9 @@ public class ImageController {
     }
 
     @GetMapping("/{id}/thumbnail")
-    public ResponseEntity<?> getThumbnail(@PathVariable String id, @RequestParam Integer userId) {
+    public ResponseEntity<?> getThumbnail(@PathVariable String id) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
             Image image = imageService.getImageById(id, userId);
 
             File thumbnailFile = imageService.getThumbnailFile(id, userId);
@@ -261,9 +266,10 @@ public class ImageController {
 
     @GetMapping("/{id}/analysis")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getImageAnalysis(
-            @PathVariable String id,
-            @RequestParam Integer userId) {
+            @PathVariable String id) {
         try {
+            Integer userId = currentUserService.getCurrentUserId();
+            imageService.getImageById(id, userId);
             Optional<ImageAnalysis> opt = imageAnalysisRepository.findTopByImageIdAndAnalysisTypeOrderByCreatedAtDesc(id, "RAG");
             if (opt.isEmpty()) {
                 return ResponseEntity.ok(ApiResponse.success(Map.of(
@@ -280,7 +286,7 @@ public class ImageController {
             result.put("updatedAt", record.getUpdatedAt());
             return ResponseEntity.ok(ApiResponse.success(result));
         } catch (Exception e) {
-            logger.error("Get analysis failed: imageId={}, userId={}", id, userId, e);
+            logger.error("Get analysis failed: imageId={}", id, e);
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("Failed to get analysis: " + e.getMessage(), "ANALYSIS_FAILED"));
         }
