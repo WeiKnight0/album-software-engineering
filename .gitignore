@@ -77,3 +77,7 @@ Thumbs.db
 
 # models
 /face-recognition/*.zip
+
+# univesal ignore
+temp/
+temp-*/
