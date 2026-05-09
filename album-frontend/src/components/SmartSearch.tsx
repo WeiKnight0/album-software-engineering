@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Input, Button, Empty, Spin, Tag, message, Modal } from 'antd';
 import { SearchOutlined, PictureOutlined, CloseCircleOutlined, CompassOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import { searchAPI } from '../services/api';
+import { imageAPI, searchAPI } from '../services/api';
 
 interface SearchResult {
   id: string;
@@ -70,7 +70,7 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ userId, initialQuery, onBack 
   };
 
   const handlePreview = (photo: SearchResult) => {
-    setPreviewImage(`/api/images/${photo.id}/download?userId=${userId}`);
+    setPreviewImage(imageAPI.getDownloadUrl(photo.id, userId));
     setPreviewPhoto(photo);
     setPreviewVisible(true);
   };
@@ -276,9 +276,9 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ userId, initialQuery, onBack 
                     onClick={() => handlePreview(photo)}
                     className="biophilic-photo-card"
                     style={{ cursor: 'pointer' }}
-                  >
-                    <img
-                      src={`/api/images/${photo.id}/thumbnail?userId=${userId}`}
+                    >
+                      <img
+                      src={imageAPI.getThumbnailUrl(photo.id, userId)}
                       alt={photo.originalFilename}
                       style={{
                         width: '100%',

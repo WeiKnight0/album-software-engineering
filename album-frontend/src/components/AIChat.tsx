@@ -3,7 +3,7 @@ import { Input, Button, Spin, Avatar, Image } from 'antd';
 import { SendOutlined, UserOutlined, LoadingOutlined, SmileOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { aiAPI } from '../services/api';
+import { aiAPI, imageAPI } from '../services/api';
 
 interface ChatMessage {
   id: string;
@@ -363,38 +363,41 @@ const AIChat: React.FC<AIChatProps> = ({ userId, embedded, onBack }) => {
                   flexWrap: 'wrap',
                   gap: 8,
                 }}>
-                  {message.references.map((ref, idx) => (
-                    <div key={idx} style={{
-                      background: 'rgba(255,255,255,0.9)',
-                      borderRadius: 8,
-                      padding: 6,
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                      maxWidth: 140,
-                    }}>
-                      <Image
-                        src={ref.thumbnailUrl}
-                        alt={ref.description}
-                        style={{
-                          width: 128,
-                          height: 96,
-                          objectFit: 'cover',
-                          borderRadius: 6,
-                        }}
-                        preview={{ src: ref.thumbnailUrl }}
-                      />
-                      <div style={{
-                        fontSize: 11,
-                        color: '#6B5B4F',
-                        marginTop: 4,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        maxWidth: 128,
-                      }} title={ref.description}>
-                        {ref.description}
+                  {message.references.map((ref, idx) => {
+                    const imageUrl = userId ? imageAPI.getThumbnailUrl(ref.imageId, userId) : ref.thumbnailUrl;
+                    return (
+                      <div key={idx} style={{
+                        background: 'rgba(255,255,255,0.9)',
+                        borderRadius: 8,
+                        padding: 6,
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                        maxWidth: 140,
+                      }}>
+                        <Image
+                          src={imageUrl}
+                          alt={ref.description}
+                          style={{
+                            width: 128,
+                            height: 96,
+                            objectFit: 'cover',
+                            borderRadius: 6,
+                          }}
+                          preview={{ src: imageUrl }}
+                        />
+                        <div style={{
+                          fontSize: 11,
+                          color: '#6B5B4F',
+                          marginTop: 4,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: 128,
+                        }} title={ref.description}>
+                          {ref.description}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

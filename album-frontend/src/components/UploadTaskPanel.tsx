@@ -100,6 +100,12 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
   const processTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchTasks = async () => {
+    if (!userId || !localStorage.getItem('token')) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await uploadTaskAPI.getTasks(userId);
       setTasks(response.data.data || []);
@@ -111,6 +117,13 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
   };
 
   useEffect(() => {
+    if (!userId || !localStorage.getItem('token')) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     fetchTasks();
     const interval = setInterval(fetchTasks, 3000);
     return () => clearInterval(interval);

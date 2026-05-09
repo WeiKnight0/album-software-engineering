@@ -3,6 +3,7 @@ package com.photo.backend.user.controller;
 import com.photo.backend.common.dto.ApiResponse;
 import com.photo.backend.common.entity.User;
 import com.photo.backend.user.dto.CurrentUserDTO;
+import com.photo.backend.user.service.CurrentUserService;
 import com.photo.backend.user.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,21 +16,14 @@ public class UserController {
     @Autowired
     private UserService userService;
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<User>> getUser(@PathVariable Integer id) {
-        try {
-            User user = userService.getUserById(id);
-            return ResponseEntity.ok(ApiResponse.success(user));
-        } catch (Exception e) {
-            return ResponseEntity.notFound().build();
-        }
-    }
+    @Autowired
+    private CurrentUserService currentUserService;
 
     // [新增] 根据 Token 获取当前登录用户信息（包含会员状态）
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<CurrentUserDTO>> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<ApiResponse<CurrentUserDTO>> getCurrentUser() {
         try {
-            User user = userService.getUserFromAuthHeader(authHeader);
+            User user = userService.getUserById(currentUserService.getCurrentUserId());
             return ResponseEntity.ok(ApiResponse.success(userService.getCurrentUserDTO(user)));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -37,11 +31,11 @@ public class UserController {
         }
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<User>> updateUser(@PathVariable Integer id, @RequestBody User user) {
+    @PutMapping("/me")
+    public ResponseEntity<ApiResponse<CurrentUserDTO>> updateCurrentUser(@RequestBody User user) {
         try {
-            User updatedUser = userService.updateUser(id, user);
-            return ResponseEntity.ok(ApiResponse.success(updatedUser, "用户更新成功"));
+            User updatedUser = userService.updateUser(currentUserService.getCurrentUserId(), user);
+            return ResponseEntity.ok(ApiResponse.success(userService.getCurrentUserDTO(updatedUser), "用户更新成功"));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("更新失败: " + e.getMessage(), "UPDATE_FAILED"));

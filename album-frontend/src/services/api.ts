@@ -33,7 +33,10 @@ api.interceptors.response.use(
   error => {
     console.error('API Error:', error)
     const shouldSkipRedirect = Boolean((error.config as RequestConfigWithAuthControl | undefined)?.skipAuthRedirect)
-    if (error.response?.status === 401 && !shouldSkipRedirect) {
+    const requestUrl = error.config?.url || ''
+    const isAdminRequest = requestUrl.startsWith('/admin/')
+    const isAuthExpired = error.response?.status === 401 || (error.response?.status === 403 && !isAdminRequest)
+    if (isAuthExpired && !shouldSkipRedirect) {
       localStorage.removeItem('token')
       window.location.reload()
     }
@@ -53,14 +56,11 @@ export const authAPI = {
 
 // ==================== 用户相关API ====================
 export const userAPI = {
-  getUser: (userId: number) => {
-    return api.get(`/users/${userId}`)
-  },
   getMe: () => {
     return api.get('/users/me')
   },
-  updateUser: (userId: number, userData: any) => {
-    return api.put(`/users/${userId}`, userData)
+  updateMe: (userData: any) => {
+    return api.put('/users/me', userData)
   }
 }
 

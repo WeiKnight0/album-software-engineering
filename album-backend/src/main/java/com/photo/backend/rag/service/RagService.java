@@ -224,22 +224,20 @@ public class RagService {
             String answer = ragLLMClient.generateAnswer(message, filteredHits);
             llmTime = System.currentTimeMillis() - t2;
 
-            // Build references with image filenames as descriptions
+            // Build references from hydrated images only, so stale vector hits do not produce broken URLs.
             List<ChatResponse.ChatReference> references = new ArrayList<>();
             for (Map<String, Object> hit : filteredHits) {
                 String imageId = String.valueOf(hit.getOrDefault("image_id", ""));
                 if (!imageId.isBlank()) {
-                    String desc = "相关照片";
                     try {
                         Image img = imageService.getImageById(imageId, userId);
-                        if (img != null && img.getOriginalFilename() != null) {
-                            desc = img.getOriginalFilename();
+                        if (img != null && !Boolean.TRUE.equals(img.getIsInRecycleBin())) {
+                            String desc = img.getOriginalFilename() != null ? img.getOriginalFilename() : "相关照片";
+                            references.add(new ChatResponse.ChatReference(imageId, desc, ""));
                         }
                     } catch (Exception ex) {
-                        logger.debug("[RAG] chat: failed to get image filename for imageId={}", imageId);
+                        logger.debug("[RAG] chat: skip stale image reference imageId={}, userId={}", imageId, userId);
                     }
-                    String thumbnailUrl = "http://localhost:8082/api/images/" + imageId + "/thumbnail?userId=" + userId;
-                    references.add(new ChatResponse.ChatReference(imageId, desc, thumbnailUrl));
                 }
             }
 

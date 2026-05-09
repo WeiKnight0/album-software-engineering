@@ -60,6 +60,12 @@ const DownloadTaskPanel: React.FC<DownloadTaskPanelProps> = ({ userId }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchTasks = async () => {
+    if (!userId || !localStorage.getItem('token')) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await downloadTaskAPI.getTasks(userId);
       setTasks(response.data.data || []);
@@ -71,6 +77,13 @@ const DownloadTaskPanel: React.FC<DownloadTaskPanelProps> = ({ userId }) => {
   };
 
   useEffect(() => {
+    if (!userId || !localStorage.getItem('token')) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     fetchTasks();
     const interval = setInterval(fetchTasks, 3000);
     return () => clearInterval(interval);
