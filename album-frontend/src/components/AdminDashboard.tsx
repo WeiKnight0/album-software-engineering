@@ -38,6 +38,13 @@ interface AdminPermission {
   module: string;
 }
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('zh-CN');
+};
+
 const downloadBlob = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -179,7 +186,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout }
     { title: '耗时(ms)', dataIndex: 'totalTimeMs' },
     { title: '结果数', dataIndex: 'resultCount' },
     { title: '错误', dataIndex: 'errorMessage', ellipsis: true },
-    { title: '时间', dataIndex: 'createdAt' }
+    { title: '时间', dataIndex: 'createdAt', render: (value: string) => formatDateTime(value) }
   ];
 
   const auditColumns = [
@@ -189,7 +196,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout }
     { title: '目标类型', dataIndex: 'targetType' },
     { title: '目标ID', dataIndex: 'targetId' },
     { title: '详情', dataIndex: 'detail', ellipsis: true },
-    { title: '时间', dataIndex: 'createdAt' }
+    { title: '时间', dataIndex: 'createdAt', render: (value: string) => formatDateTime(value) }
   ];
 
   const taskColumns = [
@@ -199,7 +206,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout }
     { title: '文件数', dataIndex: 'totalFiles' },
     { title: '大小', dataIndex: 'totalSize' },
     { title: '状态', dataIndex: 'status' },
-    { title: '创建时间', dataIndex: 'createdAt' }
+    { title: '创建时间', dataIndex: 'createdAt', render: (value: string) => formatDateTime(value) }
   ];
 
   const roleColumns = [

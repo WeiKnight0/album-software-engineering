@@ -213,6 +213,7 @@ public class UploadService {
         dto.setTotalSize(task.getTotalSize());
         dto.setUploadedFiles(task.getUploadedFiles());
         dto.setUploadedSize(task.getUploadedSize());
+        dto.setCreatedAt(task.getCreatedAt());
 
         int overallProgress = task.getTotalSize() > 0
                 ? (int) ((task.getUploadedSize() * 100) / task.getTotalSize())

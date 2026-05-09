@@ -9,6 +9,13 @@ import {
 } from '@ant-design/icons';
 import { downloadTaskAPI } from '../services/api';
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '暂无时间';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '暂无时间';
+  return date.toLocaleString('zh-CN');
+};
+
 interface DownloadTask {
   taskId: string;
   taskName: string;
@@ -199,7 +206,7 @@ const DownloadTaskPanel: React.FC<DownloadTaskPanelProps> = ({ userId }) => {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#8B7355' }}>
                     <span>文件: {task.downloadedFiles} / {task.totalFiles}</span>
-                    <span>{new Date(task.createdAt).toLocaleString()}</span>
+                    <span>{formatDateTime(task.createdAt)}</span>
                   </div>
                 </div>
               );

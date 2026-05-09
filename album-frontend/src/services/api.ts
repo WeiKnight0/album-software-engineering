@@ -1,5 +1,9 @@
 import axios from 'axios'
 
+type RequestConfigWithAuthControl = {
+  skipAuthRedirect?: boolean
+}
+
 const api = axios.create({
   baseURL: '/api',
   timeout: 30000,
@@ -28,7 +32,8 @@ api.interceptors.response.use(
   response => response,
   error => {
     console.error('API Error:', error)
-    if (error.response?.status === 401) {
+    const shouldSkipRedirect = Boolean((error.config as RequestConfigWithAuthControl | undefined)?.skipAuthRedirect)
+    if (error.response?.status === 401 && !shouldSkipRedirect) {
       localStorage.removeItem('token')
       window.location.reload()
     }
@@ -39,10 +44,10 @@ api.interceptors.response.use(
 // ==================== 认证相关API ====================
 export const authAPI = {
   login: (credentials: { username: string; password: string }) => {
-    return api.post('/auth/login', credentials)
+    return api.post('/auth/login', credentials, { skipAuthRedirect: true } as any)
   },
   register: (userData: { username: string; password: string; email: string; nickname?: string }) => {
-    return api.post('/auth/register', userData)
+    return api.post('/auth/register', userData, { skipAuthRedirect: true } as any)
   }
 }
 

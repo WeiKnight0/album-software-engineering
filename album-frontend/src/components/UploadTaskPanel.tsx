@@ -12,6 +12,13 @@ import {
 } from '@ant-design/icons';
 import { uploadTaskAPI } from '../services/api';
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '暂无时间';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '暂无时间';
+  return date.toLocaleString('zh-CN');
+};
+
 interface UploadFileItem {
   fileIndex: number;
   fileName: string;
@@ -129,10 +136,10 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
       for (let i = 0; i < files.length; i++) {
         await uploadTaskAPI.uploadFile(taskId, userId, files[i], i, folderId);
       }
-      message.success('Upload completed');
+        message.success('Upload completed');
       fetchTasks();
     } catch (error: any) {
-      const msg = error.response?.data?.message || 'Upload task failed';
+      const msg = error.response?.data?.message || '上传任务失败';
       message.error(msg);
       console.error('Upload task error:', error);
     } finally {
@@ -144,40 +151,40 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
   const handlePause = async (taskId: string) => {
     try {
       await uploadTaskAPI.pause(taskId, userId);
-      message.success('Paused');
+      message.success('已暂停');
       fetchTasks();
     } catch (error) {
-      message.error('Operation failed');
+      message.error('操作失败');
     }
   };
 
   const handleResume = async (taskId: string) => {
     try {
       await uploadTaskAPI.resume(taskId, userId);
-      message.success('Resumed');
+      message.success('已继续');
       fetchTasks();
     } catch (error) {
-      message.error('Operation failed');
+      message.error('操作失败');
     }
   };
 
   const handleRetry = async (taskId: string) => {
     try {
       await uploadTaskAPI.retry(taskId, userId);
-      message.success('Retried');
+      message.success('已重试');
       fetchTasks();
     } catch (error) {
-      message.error('Operation failed');
+      message.error('操作失败');
     }
   };
 
   const handleCleanup = async (taskId: string) => {
     try {
       await uploadTaskAPI.cleanup(taskId, userId);
-      message.success('Cleaned up');
+      message.success('已清理');
       fetchTasks();
     } catch (error) {
-      message.error('Operation failed');
+      message.error('操作失败');
     }
   };
 
@@ -191,7 +198,7 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
     <div>
       <div style={{ marginBottom: 20 }}>
         <h3 className="biophilic-title" style={{ fontSize: 20, margin: 0 }}>
-          Upload Tasks
+          上传任务
         </h3>
       </div>
 
@@ -248,12 +255,12 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
             <div className="animate-breathe">
               <EmptyPlantIcon />
             </div>
-            <p style={{ color: '#7D9B76' }}>Loading tasks...</p>
+            <p style={{ color: '#7D9B76' }}>正在加载任务...</p>
           </div>
         ) : tasks.length === 0 ? (
           <div className="biophilic-empty" style={{ padding: 32 }}>
             <EmptyPlantIcon />
-            <p style={{ color: '#8B7355' }}>No upload tasks</p>
+            <p style={{ color: '#8B7355' }}>暂无上传任务</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -276,8 +283,8 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
                   }}
                 >
                   {/* Task header */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, minWidth: 0 }}>
                       {task.totalFiles > 1 && (
                         <button
                           onClick={() => toggleExpand(task.taskId)}
@@ -287,39 +294,41 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
                         </button>
                       )}
                       <FileImageOutlined style={{ color: '#7D9B76', fontSize: 18, flexShrink: 0 }} />
-                      <span style={{ color: '#3D5A40', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {task.taskName || 'Upload Task'}
-                      </span>
-                      <span style={{
-                        padding: '2px 10px',
-                        borderRadius: 10,
-                        background: `${statusInfo.color}15`,
-                        color: statusInfo.color,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        flexShrink: 0,
-                      }}>
-                        {statusInfo.label}
-                      </span>
-                      <span style={{
-                        padding: '2px 10px',
-                        borderRadius: 10,
-                        background: analysisStyle.bg,
-                        color: analysisStyle.color,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        flexShrink: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}>
-                        {analysisStyle.spinning && (
-                          <Spin size="small" style={{ fontSize: 10 }} />
-                        )}
-                        {analysisStyle.label}
-                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: '#3D5A40', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 8 }}>
+                          {task.taskName || '上传任务'}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          <span style={{
+                            padding: '2px 10px',
+                            borderRadius: 10,
+                            background: `${statusInfo.color}15`,
+                            color: statusInfo.color,
+                            fontSize: 12,
+                            fontWeight: 500,
+                          }}>
+                            {statusInfo.label}
+                          </span>
+                          <span style={{
+                            padding: '2px 10px',
+                            borderRadius: 10,
+                            background: analysisStyle.bg,
+                            color: analysisStyle.color,
+                            fontSize: 12,
+                            fontWeight: 500,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}>
+                            {analysisStyle.spinning && (
+                              <Spin size="small" style={{ fontSize: 10 }} />
+                            )}
+                            {analysisStyle.label}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       {task.status === 2 && (
                         <button onClick={() => handlePause(task.taskId)} style={actionBtnStyle} title="Pause">
                           <PauseCircleOutlined />
@@ -353,8 +362,8 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
                     />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#8B7355' }}>
-                    <span>Files: {task.uploadedFiles} / {task.totalFiles}</span>
-                    <span>{new Date(task.createdAt).toLocaleString()}</span>
+                    <span>文件: {task.uploadedFiles} / {task.totalFiles}</span>
+                    <span>{formatDateTime(task.createdAt)}</span>
                   </div>
 
                   {/* Single file: show analysis status directly without expandable title */}
@@ -405,7 +414,7 @@ const FileRow: React.FC<{ file: UploadFileItem; formatFileSize: (s: number) => s
           {formatFileSize(file.fileSize)}
         </span>
         {file.errorMsg && (
-          <span style={{ color: '#c45c48', fontSize: 11, whiteSpace: 'nowrap' }}>
+          <span style={{ color: '#c45c48', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }} title={file.errorMsg}>
             {file.errorMsg}
           </span>
         )}

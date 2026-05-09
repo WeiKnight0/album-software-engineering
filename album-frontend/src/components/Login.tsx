@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, message } from 'antd';
+import { Form, Input, Button, message, Alert } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import { authAPI } from '../services/api';
 
@@ -39,10 +39,16 @@ const LeftPlantDecoration: React.FC = () => (
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [errorText, setErrorText] = useState('');
   const [form] = Form.useForm();
 
   const handleLogin = async (values: { username: string; password: string }) => {
     setLoading(true);
+    setErrorText('');
+    form.setFields([
+      { name: 'username', errors: [] },
+      { name: 'password', errors: [] },
+    ]);
     try {
       const response = await authAPI.login(values);
       if (response.data.success) {
@@ -51,11 +57,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         message.success('欢迎回来 🌿');
         onLoginSuccess();
       } else {
-        message.error(response.data.message || '登录失败');
+        const messageText = response.data.message || '登录失败';
+        setErrorText(messageText);
+        form.setFields([{ name: 'password', errors: [messageText] }]);
       }
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || '登录失败，请检查用户名和密码';
-      message.error(errorMsg);
+      setErrorText(errorMsg);
+      form.setFields([{ name: 'password', errors: [errorMsg] }]);
     } finally {
       setLoading(false);
     }
@@ -63,6 +72,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   const handleRegister = async (values: { username: string; password: string; email: string; nickname: string }) => {
     setLoading(true);
+    setErrorText('');
     try {
       const response = await authAPI.register(values);
       if (response.data.success) {
@@ -70,11 +80,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setIsRegisterMode(false);
         form.resetFields();
       } else {
-        message.error(response.data.message || '注册失败');
+        setErrorText(response.data.message || '注册失败');
       }
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || '注册失败，请重试';
-      message.error(errorMsg);
+      setErrorText(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -119,6 +129,13 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           onFinish={isRegisterMode ? handleRegister : handleLogin}
           layout="vertical"
           size="large"
+          onValuesChange={() => {
+            if (errorText) setErrorText('')
+            form.setFields([
+              { name: 'username', errors: [] },
+              { name: 'password', errors: [] },
+            ])
+          }}
         >
           {isRegisterMode && (
             <>
@@ -178,6 +195,12 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               className="biophilic-input"
             />
           </Form.Item>
+
+          {errorText && (
+            <Form.Item style={{ marginBottom: 12 }}>
+              <Alert type="error" showIcon message={errorText} />
+            </Form.Item>
+          )}
 
           <Form.Item style={{ marginTop: 28 }}>
             <Button 
