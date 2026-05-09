@@ -14,7 +14,7 @@ import {
   PlusOutlined,
   EditOutlined
 } from '@ant-design/icons';
-import { imageAPI, folderAPI } from '../services/api';
+import { imageAPI, folderAPI, downloadTaskAPI } from '../services/api';
 
 interface ImageItem {
   id: string;
@@ -167,9 +167,38 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({ userId, folderId, refreshKe
     setPreviewVisible(true);
   };
 
-  const handleDownload = (photo: ImageItem) => {
-    window.open(imageAPI.getDownloadUrl(photo.id, photo.userId), '_blank');
-    message.success('开始下载');
+  const handleDownload = async (photo: ImageItem) => {
+    try {
+      // 1. 创建下载任务记录
+      const taskRes = await downloadTaskAPI.createTask(userId, photo.originalFilename, [{
+        imageId: photo.id,
+        fileName: photo.originalFilename,
+        fileSize: photo.fileSize,
+      }]);
+      const taskId = taskRes.data.data.taskId;
+
+      // 2. 下载文件
+      const token = localStorage.getItem('token');
+      const response = await fetch(imageAPI.getDownloadUrl(photo.id, userId), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = photo.originalFilename || 'download';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      // 3. 标记下载完成
+      await downloadTaskAPI.markComplete(taskId, photo.id, userId);
+      message.success('开始下载');
+    } catch (error) {
+      message.error('下载失败');
+    }
   };
 
   const handleDelete = async (photoId: string) => {

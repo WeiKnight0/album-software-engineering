@@ -57,7 +57,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <ExpandOutlined /> 展开
           </button>
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            <AIChat embedded />
+            <AIChat userId={userId} embedded />
           </div>
         </div>
 
