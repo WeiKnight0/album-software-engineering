@@ -40,6 +40,14 @@ interface DashboardStats {
   recycleCount: number;
 }
 
+interface FaceItem {
+  face_id: number;
+  face_name: string | null;
+  cover_path: string | null;
+  last_seen_at: string;
+  created_at: string;
+}
+
 const formatStorage = (bytes: number) => {
   if (!bytes) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -60,6 +68,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [recentPhotos, setRecentPhotos] = useState<ImageItem[]>([]);
+  const [namedFaces, setNamedFaces] = useState<string[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalImages: 0,
     totalStorage: 0,
@@ -92,6 +101,13 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
         });
 
         setRecentPhotos(sortedImages.slice(0, 10));
+        const allFaces: FaceItem[] = facesRes.data.data || [];
+        setNamedFaces(
+          allFaces
+            .filter(f => f.face_name && f.face_name.trim())
+            .map(f => f.face_name!.trim())
+            .slice(0, 3)
+        );
         setStats({
           totalImages: Number(statsRes.data.data?.totalImages || images.length || 0),
           totalStorage: Number(statsRes.data.data?.totalStorage || 0),
@@ -118,6 +134,11 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
     { label: '文件夹', value: stats.totalFolders, extra: '整理好的分类', icon: <FolderOutlined />, tone: '#8B7355' },
     { label: '存储', value: formatStorage(stats.totalStorage), extra: `${stats.recycleCount} 项在回收站`, icon: <DatabaseOutlined />, tone: '#4D7C8A' },
   ], [stats]);
+
+  const suggestedKeywords = useMemo(() => {
+    const faceKeywords = namedFaces.map(name => `${name}的照片`);
+    return [...faceKeywords, '最近上传', '人物合照'];
+  }, [namedFaces]);
 
   const quickActions = [
     { title: '上传照片', desc: '添加新的照片和素材', icon: <CloudUploadOutlined />, action: onNavigateToTransfer },
@@ -173,7 +194,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
             style={{ marginBottom: 14 }}
           />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {['lxc的照片', '最近上传', '人物合照', '风景'].map(keyword => (
+            {suggestedKeywords.map(keyword => (
               <button
                 key={keyword}
                 onClick={() => navigate(`/search?q=${encodeURIComponent(keyword)}`)}
