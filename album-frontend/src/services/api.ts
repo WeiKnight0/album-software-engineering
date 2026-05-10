@@ -49,7 +49,7 @@ export const authAPI = {
   login: (credentials: { username: string; password: string }) => {
     return api.post('/auth/login', credentials, { skipAuthRedirect: true } as any)
   },
-  register: (userData: { username: string; password: string; email: string; nickname?: string }) => {
+  register: (userData: { username: string; password: string; confirmPassword: string; email: string; nickname?: string }) => {
     return api.post('/auth/register', userData, { skipAuthRedirect: true } as any)
   }
 }
@@ -61,19 +61,31 @@ export const userAPI = {
   },
   updateMe: (userData: any) => {
     return api.put('/users/me', userData)
-  }
+  },
+  updatePassword: (passwordData: { currentPassword: string; newPassword: string }) => {
+    return api.put('/users/me/password', passwordData)
+  },
+  uploadAvatar: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/users/me/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
+  getAvatarUrl: () => `/api/users/me/avatar?${tokenQuery()}`,
+  getDefaultAvatarUrl: () => '/default-avatar.webp'
 }
 
 // ==================== 管理员API ====================
 export const adminAPI = {
   getUsers: () => api.get('/admin/users'),
-  createUser: (userData: { username: string; password: string; email: string; nickname?: string; role: string }) => api.post('/admin/users', userData),
+  createUser: (userData: { username: string; password: string; confirmPassword: string; email: string; nickname?: string; role: string }) => api.post('/admin/users', userData),
   updateStatus: (userId: number, status: number) => api.patch(`/admin/users/${userId}/status`, { status }),
   updateMembership: (userId: number, isMember: boolean) => api.patch(`/admin/users/${userId}/membership`, { isMember }),
   updateStorageLimit: (userId: number, storageLimit: number) => api.patch(`/admin/users/${userId}/storage-limit`, { storageLimit }),
   updateRoles: (userId: number, roles: string[]) => api.put(`/admin/users/${userId}/roles`, { roles }),
   getRoles: () => api.get('/admin/roles'),
   getPermissions: () => api.get('/admin/permissions'),
+  getUserPermissions: (userId: number) => api.get(`/admin/users/${userId}/permissions`),
+  updateUserPermissions: (userId: number, permissions: string[]) => api.put(`/admin/users/${userId}/permissions`, { permissions }),
   updateRolePermissions: (roleId: number, permissions: string[]) => api.put(`/admin/roles/${roleId}/permissions`, { permissions }),
   getRagLogs: () => api.get('/admin/logs/rag'),
   getAuditLogs: () => api.get('/admin/logs/audit'),
@@ -309,8 +321,8 @@ export const downloadTaskAPI = {
 
 // ==================== AI相关API ====================
 export const aiAPI = {
-  chat: (message: string, _userId: number) => {
-    return api.post('/rag/chat', { message })
+  chat: (message: string, _userId: number, history: { role: 'user' | 'assistant'; content: string }[] = []) => {
+    return api.post('/rag/chat', { message, history })
   }
 }
 

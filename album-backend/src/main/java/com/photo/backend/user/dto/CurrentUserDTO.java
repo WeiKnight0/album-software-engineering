@@ -16,6 +16,7 @@ public class CurrentUserDTO {
     private Long storageUsed;
     private Long storageLimit;
     private Integer status;
+    private String avatarFilename;
     private List<String> roles;
     private List<String> permissions;
 
@@ -31,6 +32,7 @@ public class CurrentUserDTO {
         dto.setStorageUsed(user.getStorageUsed());
         dto.setStorageLimit(user.getStorageLimit());
         dto.setStatus(user.getStatus());
+        dto.setAvatarFilename(user.getAvatarFilename());
         dto.setRoles(roles);
         dto.setPermissions(permissions);
         return dto;
@@ -56,6 +58,8 @@ public class CurrentUserDTO {
     public void setStorageLimit(Long storageLimit) { this.storageLimit = storageLimit; }
     public Integer getStatus() { return status; }
     public void setStatus(Integer status) { this.status = status; }
+    public String getAvatarFilename() { return avatarFilename; }
+    public void setAvatarFilename(String avatarFilename) { this.avatarFilename = avatarFilename; }
     public List<String> getRoles() { return roles; }
     public void setRoles(List<String> roles) { this.roles = roles; }
     public List<String> getPermissions() { return permissions; }

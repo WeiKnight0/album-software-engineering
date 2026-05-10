@@ -16,6 +16,7 @@ public class AdminUserDTO {
     private Integer status;
     private Long storageUsed;
     private Long storageLimit;
+    private String avatarFilename;
     private List<String> roles;
 
     public static AdminUserDTO from(User user, List<String> roles) {
@@ -30,6 +31,7 @@ public class AdminUserDTO {
         dto.setStatus(user.getStatus());
         dto.setStorageUsed(user.getStorageUsed());
         dto.setStorageLimit(user.getStorageLimit());
+        dto.setAvatarFilename(user.getAvatarFilename());
         dto.setRoles(roles);
         return dto;
     }
@@ -54,6 +56,8 @@ public class AdminUserDTO {
     public void setStorageUsed(Long storageUsed) { this.storageUsed = storageUsed; }
     public Long getStorageLimit() { return storageLimit; }
     public void setStorageLimit(Long storageLimit) { this.storageLimit = storageLimit; }
+    public String getAvatarFilename() { return avatarFilename; }
+    public void setAvatarFilename(String avatarFilename) { this.avatarFilename = avatarFilename; }
     public List<String> getRoles() { return roles; }
     public void setRoles(List<String> roles) { this.roles = roles; }
 }

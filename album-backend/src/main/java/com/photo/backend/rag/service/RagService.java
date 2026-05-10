@@ -4,6 +4,7 @@ import com.photo.backend.common.entity.Image;
 import com.photo.backend.common.entity.ImageAnalysis;
 import com.photo.backend.common.repository.ImageAnalysisRepository;
 import com.photo.backend.asset.service.ImageService;
+import com.photo.backend.rag.dto.ChatRequest;
 import com.photo.backend.rag.dto.ChatResponse;
 import com.photo.backend.rag.entity.RagPerformanceLog;
 import com.photo.backend.rag.repository.RagPerformanceLogRepository;
@@ -188,6 +189,10 @@ public class RagService {
      * RAG Chat: retrieve relevant images, then generate answer with LLM.
      */
     public ChatResponse chat(Integer userId, String message) {
+        return chat(userId, message, Collections.emptyList());
+    }
+
+    public ChatResponse chat(Integer userId, String message, List<ChatRequest.HistoryMessage> history) {
         long totalT0 = System.currentTimeMillis();
         Long vectorTime = null;
         Long llmTime = null;
@@ -221,7 +226,7 @@ public class RagService {
 
             // Step 2: Generate answer with LLM
             long t2 = System.currentTimeMillis();
-            String answer = ragLLMClient.generateAnswer(message, filteredHits);
+            String answer = ragLLMClient.generateAnswer(message, filteredHits, sanitizeHistory(history));
             llmTime = System.currentTimeMillis() - t2;
 
             // Build references from hydrated images only, so stale vector hits do not produce broken URLs.
@@ -255,6 +260,24 @@ public class RagService {
             logger.error("[RAG] chat exception: userId={}, totalTime={}ms", userId, totalTime, e);
             return new ChatResponse("抱歉，服务暂时异常，请稍后重试。", Collections.emptyList());
         }
+    }
+
+    private List<ChatRequest.HistoryMessage> sanitizeHistory(List<ChatRequest.HistoryMessage> history) {
+        if (history == null || history.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return history.stream()
+                .filter(item -> item != null && item.getContent() != null && !item.getContent().isBlank())
+                .filter(item -> "user".equals(item.getRole()) || "assistant".equals(item.getRole()))
+                .skip(Math.max(0, history.size() - 10))
+                .map(item -> {
+                    ChatRequest.HistoryMessage next = new ChatRequest.HistoryMessage();
+                    next.setRole(item.getRole());
+                    String content = item.getContent().trim();
+                    next.setContent(content.length() > 2000 ? content.substring(0, 2000) : content);
+                    return next;
+                })
+                .collect(Collectors.toList());
     }
 
     public boolean deleteVector(Integer userId, String imageId) {

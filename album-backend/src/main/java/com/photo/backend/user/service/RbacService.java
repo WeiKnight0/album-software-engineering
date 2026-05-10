@@ -4,11 +4,13 @@ import com.photo.backend.common.entity.Permission;
 import com.photo.backend.common.entity.Role;
 import com.photo.backend.common.entity.RolePermission;
 import com.photo.backend.common.entity.User;
+import com.photo.backend.common.entity.UserPermission;
 import com.photo.backend.common.entity.UserRole;
 import com.photo.backend.common.repository.PermissionRepository;
 import com.photo.backend.common.repository.RolePermissionRepository;
 import com.photo.backend.common.repository.RoleRepository;
 import com.photo.backend.common.repository.UserRoleRepository;
+import com.photo.backend.common.repository.UserPermissionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,8 @@ public class RbacService {
     private UserRoleRepository userRoleRepository;
     @Autowired
     private RolePermissionRepository rolePermissionRepository;
+    @Autowired
+    private UserPermissionRepository userPermissionRepository;
 
     public List<String> getRoleCodes(Integer userId) {
         List<String> roles = new ArrayList<>();
@@ -45,17 +49,17 @@ public class RbacService {
     }
 
     public List<String> getPermissionCodes(Integer userId) {
+        if (hasRole(userId, ROLE_SUPER_ADMIN)) {
+            return permissionRepository.findAll().stream().map(Permission::getCode).sorted().toList();
+        }
+        if (!hasRole(userId, ROLE_ADMIN)) {
+            return List.of();
+        }
         Set<String> permissions = new HashSet<>();
-        for (UserRole userRole : userRoleRepository.findByUserId(userId)) {
-            roleRepository.findById(userRole.getRoleId())
-                    .filter(role -> role.getStatus() == null || role.getStatus() == 1)
-                    .ifPresent(role -> {
-                        for (RolePermission rolePermission : rolePermissionRepository.findByRoleId(role.getId())) {
-                            permissionRepository.findById(rolePermission.getPermissionId())
-                                    .map(Permission::getCode)
-                                    .ifPresent(permissions::add);
-                        }
-                    });
+        for (UserPermission userPermission : userPermissionRepository.findByUserId(userId)) {
+            permissionRepository.findById(userPermission.getPermissionId())
+                    .map(Permission::getCode)
+                    .ifPresent(permissions::add);
         }
         return permissions.stream().sorted().toList();
     }
@@ -76,6 +80,19 @@ public class RbacService {
 
     public boolean hasPermission(Integer userId, String permissionCode) {
         return getPermissionCodes(userId).contains(permissionCode);
+    }
+
+    public List<String> getDefaultAdminPermissionCodes() {
+        return List.of(
+                "user:view",
+                "user:create",
+                "user:update",
+                "role:view",
+                "log:view",
+                "log:export",
+                "task:view",
+                "task:export"
+        );
     }
 
     public boolean isAdmin(User user) {
@@ -117,9 +134,31 @@ public class RbacService {
 
     @Transactional
     public void replaceUserRoles(Integer userId, List<String> roleCodes) {
-        userRoleRepository.deleteByUserId(userId);
-        for (String roleCode : roleCodes) {
-            assignRole(userId, roleCode);
+        throw new RuntimeException("账号角色创建后不可修改");
+    }
+
+    public List<String> getUserPermissionCodes(Integer userId) {
+        return getPermissionCodes(userId);
+    }
+
+    @Transactional
+    public void replaceUserPermissions(Integer userId, List<String> permissionCodes) {
+        if (!hasRole(userId, ROLE_ADMIN)) {
+            throw new RuntimeException("只能为管理员分配权限");
+        }
+        if (hasRole(userId, ROLE_SUPER_ADMIN)) {
+            throw new RuntimeException("超级管理员拥有全部权限，无需分配");
+        }
+        userPermissionRepository.deleteByUserId(userId);
+        for (String permissionCode : permissionCodes) {
+            Permission permission = permissionRepository.findByCode(permissionCode)
+                    .orElseThrow(() -> new RuntimeException("Permission not found: " + permissionCode));
+            if (!userPermissionRepository.existsByUserIdAndPermissionId(userId, permission.getId())) {
+                UserPermission userPermission = new UserPermission();
+                userPermission.setUserId(userId);
+                userPermission.setPermissionId(permission.getId());
+                userPermissionRepository.save(userPermission);
+            }
         }
     }
 

@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import com.photo.backend.rag.dto.ChatRequest;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -126,6 +128,10 @@ public class RagLLMClient {
      * Generate an answer based on user query and retrieved image descriptions.
      */
     public String generateAnswer(String query, List<Map<String, Object>> references) {
+        return generateAnswer(query, references, List.of());
+    }
+
+    public String generateAnswer(String query, List<Map<String, Object>> references, List<ChatRequest.HistoryMessage> history) {
         if (!enabled) {
             logger.debug("RAG LLM is disabled, skip answer generation");
             return "AI 服务当前不可用，请稍后重试。";
@@ -153,6 +159,17 @@ public class RagLLMClient {
 
             List<Map<String, Object>> messages = new ArrayList<>();
             messages.add(Map.of("role", "system", "content", systemPrompt));
+            if (history != null) {
+                for (ChatRequest.HistoryMessage item : history) {
+                    if (item == null || item.getContent() == null || item.getContent().isBlank()) {
+                        continue;
+                    }
+                    if (!"user".equals(item.getRole()) && !"assistant".equals(item.getRole())) {
+                        continue;
+                    }
+                    messages.add(Map.of("role", item.getRole(), "content", item.getContent()));
+                }
+            }
             messages.add(Map.of("role", "user", "content", userPrompt));
 
             Map<String, Object> body = new java.util.HashMap<>();

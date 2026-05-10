@@ -56,7 +56,7 @@ public class RagController {
                         .body(ApiResponse.error("message is required", "INVALID_PARAMS"));
             }
 
-            ChatResponse response = ragService.chat(userId, request.getMessage());
+            ChatResponse response = ragService.chat(userId, request.getMessage(), request.getHistory());
             return ResponseEntity.ok(ApiResponse.success(response, "Chat response generated"));
         } catch (Exception e) {
             logger.error("RAG chat failed: {}", e.getMessage(), e);

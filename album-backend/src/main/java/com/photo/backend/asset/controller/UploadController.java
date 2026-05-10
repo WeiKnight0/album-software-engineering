@@ -2,8 +2,11 @@ package com.photo.backend.asset.controller;
 
 import com.photo.backend.asset.dto.*;
 import com.photo.backend.asset.service.UploadService;
+import com.photo.backend.admin.service.AdminAuditLogService;
 import com.photo.backend.common.dto.ApiResponse;
+import com.photo.backend.common.entity.User;
 import com.photo.backend.user.service.CurrentUserService;
+import com.photo.backend.user.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +29,12 @@ public class UploadController {
     @Autowired
     private CurrentUserService currentUserService;
 
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private AdminAuditLogService adminAuditLogService;
+
     @PostMapping("/tasks")
     public ResponseEntity<ApiResponse<UploadTaskDTO>> createTask(@RequestBody CreateTaskRequest request) {
         try {
@@ -36,6 +45,7 @@ public class UploadController {
             }
 
             UploadTaskDTO task = uploadService.createTask(request);
+            adminAuditLogService.recordTask(currentUser(), "UPLOAD_TASK_CREATE", task.getTaskId(), "files=" + request.getFiles().size() + ", totalSize=" + task.getTotalSize(), true);
             return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(task, "创建上传任务成功"));
         } catch (Exception e) {
@@ -72,6 +82,8 @@ public class UploadController {
             }
 
             UploadFileDTO result = uploadService.uploadFile(taskId, userId, file, fileIndex, folderId);
+            boolean success = result.getImageId() != null && !result.getImageId().isBlank();
+            adminAuditLogService.recordTask(currentUser(), success ? "UPLOAD_FILE_SUCCESS" : "UPLOAD_FILE_FAILED", taskId, "file=" + file.getOriginalFilename() + ", index=" + fileIndex, success);
             return ResponseEntity.ok(ApiResponse.success(result, "文件上传成功"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
@@ -111,6 +123,7 @@ public class UploadController {
             Integer userId = currentUserService.getCurrentUserId();
 
             uploadService.pauseTask(taskId, userId);
+            adminAuditLogService.recordTask(currentUser(), "UPLOAD_TASK_PAUSE", taskId, "paused", true);
             return ResponseEntity.ok(ApiResponse.success("任务已暂停"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound()
@@ -133,6 +146,7 @@ public class UploadController {
             Integer userId = currentUserService.getCurrentUserId();
 
             uploadService.resumeTask(taskId, userId);
+            adminAuditLogService.recordTask(currentUser(), "UPLOAD_TASK_RESUME", taskId, "resumed", true);
             return ResponseEntity.ok(ApiResponse.success("任务已继续"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound()
@@ -153,6 +167,7 @@ public class UploadController {
         try {
             Integer userId = currentUserService.getCurrentUserId();
             uploadService.cancelTask(taskId, userId);
+            adminAuditLogService.recordTask(currentUser(), "UPLOAD_TASK_CANCEL", taskId, "cancelled", true);
             return ResponseEntity.ok(ApiResponse.success("任务已取消"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound()
@@ -172,6 +187,7 @@ public class UploadController {
             Integer userId = currentUserService.getCurrentUserId();
 
             uploadService.retryTask(taskId, userId);
+            adminAuditLogService.recordTask(currentUser(), "UPLOAD_TASK_RETRY", taskId, "retry", true);
             return ResponseEntity.ok(ApiResponse.success("任务重试成功"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound()
@@ -192,11 +208,16 @@ public class UploadController {
         try {
             Integer userId = currentUserService.getCurrentUserId();
             uploadService.cleanupTempFiles(taskId, userId);
+            adminAuditLogService.recordTask(currentUser(), "UPLOAD_TASK_CLEANUP", taskId, "cleanup temp files", true);
             return ResponseEntity.ok(ApiResponse.success("临时文件已清理"));
         } catch (Exception e) {
             logger.error("清理临时文件失败: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("清理临时文件失败: " + e.getMessage(), "CLEANUP_FAILED"));
         }
+    }
+
+    private User currentUser() {
+        return userService.getUserById(currentUserService.getCurrentUserId());
     }
 }

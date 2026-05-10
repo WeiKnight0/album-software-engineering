@@ -1,14 +1,17 @@
 package com.photo.backend.asset.controller;
 
 import com.photo.backend.common.dto.ApiResponse;
+import com.photo.backend.admin.service.AdminAuditLogService;
 import com.photo.backend.asset.dto.CreateDownloadTaskRequest;
 import com.photo.backend.asset.dto.DownloadFileDTO;
 import com.photo.backend.asset.dto.DownloadTaskDTO;
 import com.photo.backend.asset.service.DownloadService;
+import com.photo.backend.common.entity.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.photo.backend.user.service.CurrentUserService;
+import com.photo.backend.user.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,11 +30,18 @@ public class DownloadController {
     @Autowired
     private CurrentUserService currentUserService;
 
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private AdminAuditLogService adminAuditLogService;
+
     @PostMapping("/tasks")
     public ResponseEntity<ApiResponse<DownloadTaskDTO>> createTask(@RequestBody CreateDownloadTaskRequest request) {
         try {
             request.setUserId(currentUserService.getCurrentUserId());
             DownloadTaskDTO task = downloadService.createTask(request);
+            adminAuditLogService.recordTask(currentUser(), "DOWNLOAD_TASK_CREATE", task.getTaskId(), "files=" + task.getTotalFiles() + ", totalSize=" + task.getTotalSize(), true);
             return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(task, "创建下载任务成功"));
         } catch (Exception e) {
@@ -95,6 +105,7 @@ public class DownloadController {
         try {
             Integer userId = currentUserService.getCurrentUserId();
             downloadService.pauseTask(taskId, userId);
+            adminAuditLogService.recordTask(currentUser(), "DOWNLOAD_TASK_PAUSE", taskId, "paused", true);
             return ResponseEntity.ok(ApiResponse.success("任务已暂停"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound()
@@ -116,6 +127,7 @@ public class DownloadController {
         try {
             Integer userId = currentUserService.getCurrentUserId();
             downloadService.resumeTask(taskId, userId);
+            adminAuditLogService.recordTask(currentUser(), "DOWNLOAD_TASK_RESUME", taskId, "resumed", true);
             return ResponseEntity.ok(ApiResponse.success("任务已继续"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound()
@@ -137,6 +149,7 @@ public class DownloadController {
         try {
             Integer userId = currentUserService.getCurrentUserId();
             downloadService.cancelTask(taskId, userId);
+            adminAuditLogService.recordTask(currentUser(), "DOWNLOAD_TASK_CANCEL", taskId, "cancelled", true);
             return ResponseEntity.ok(ApiResponse.success("任务已取消"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound()
@@ -155,6 +168,7 @@ public class DownloadController {
         try {
             Integer userId = currentUserService.getCurrentUserId();
             downloadService.retryTask(taskId, userId);
+            adminAuditLogService.recordTask(currentUser(), "DOWNLOAD_TASK_RETRY", taskId, "retry", true);
             return ResponseEntity.ok(ApiResponse.success("任务已重试"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound()
@@ -175,6 +189,7 @@ public class DownloadController {
         try {
             Integer userId = currentUserService.getCurrentUserId();
             downloadService.deleteTask(taskId, userId);
+            adminAuditLogService.recordTask(currentUser(), "DOWNLOAD_TASK_DELETE", taskId, "deleted", true);
             return ResponseEntity.ok(ApiResponse.success("任务已删除"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound()
@@ -193,6 +208,7 @@ public class DownloadController {
         try {
             Integer userId = currentUserService.getCurrentUserId();
             downloadService.markFileCompleted(taskId, userId, imageId);
+            adminAuditLogService.recordTask(currentUser(), "DOWNLOAD_FILE_COMPLETE", taskId, "imageId=" + imageId, true);
             return ResponseEntity.ok(ApiResponse.success("文件已标记完成"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound()
@@ -202,5 +218,9 @@ public class DownloadController {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("标记文件完成失败: " + e.getMessage(), "MARK_COMPLETE_FAILED"));
         }
+    }
+
+    private User currentUser() {
+        return userService.getUserById(currentUserService.getCurrentUserId());
     }
 }

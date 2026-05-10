@@ -128,11 +128,13 @@ public class UploadService {
             uploadFile.setImageId(image.getId());
             uploadFile.setStatus(FILE_STATUS_SUCCESS);
             uploadFile.setProgress(100);
+            uploadFile.setErrorMsg(null);
             uploadFile.setCompletedAt(LocalDateTime.now());
         } catch (Exception e) {
             logger.error("Failed to save image: {}", e.getMessage());
             uploadFile.setErrorMsg(e.getMessage());
             uploadFile.setStatus(FILE_STATUS_FAILED);
+            uploadFile.setProgress(0);
         }
 
         uploadFile.setUpdatedAt(LocalDateTime.now());
@@ -289,7 +291,7 @@ public class UploadService {
         UploadTask task = uploadTaskRepository.findByIdAndUserId(taskId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("任务不存在"));
 
-        if (task.getStatus() != TASK_STATUS_CANCELLED && task.getStatus() != TASK_STATUS_PAUSED) {
+        if (task.getStatus() != TASK_STATUS_CANCELLED && task.getStatus() != TASK_STATUS_PAUSED && task.getStatus() != TASK_STATUS_WAITING) {
             throw new IllegalStateException("任务无法重试");
         }
 
@@ -321,7 +323,11 @@ public class UploadService {
         List<UploadFile> files = uploadFileRepository.findByTaskId(taskId);
 
         long successCount = files.stream().filter(f -> f.getStatus() == FILE_STATUS_SUCCESS).count();
-        long uploadedSize = files.stream().mapToLong(f -> f.getFileSize() != null ? f.getFileSize() : 0).sum();
+        long failedCount = files.stream().filter(f -> f.getStatus() == FILE_STATUS_FAILED).count();
+        long uploadedSize = files.stream()
+                .filter(f -> f.getStatus() == FILE_STATUS_SUCCESS)
+                .mapToLong(f -> f.getFileSize() != null ? f.getFileSize() : 0)
+                .sum();
 
         task.setUploadedFiles((int) successCount);
         task.setUploadedSize(uploadedSize);
@@ -329,6 +335,8 @@ public class UploadService {
         if (successCount == files.size()) {
             task.setStatus(TASK_STATUS_COMPLETED);
             task.setCompletedAt(LocalDateTime.now());
+        } else if (failedCount > 0) {
+            task.setStatus(TASK_STATUS_WAITING);
         }
 
         task.setUpdatedAt(LocalDateTime.now());

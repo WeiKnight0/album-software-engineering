@@ -1,4 +1,4 @@
-# Album RJGC
+# Album
 
 一个由前端、业务后端、人脸识别服务和 RAG 检索服务组成的相册系统。使用 `docker compose` 启动整套环境。
 

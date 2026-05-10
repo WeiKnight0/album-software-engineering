@@ -298,11 +298,26 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ userId, initialQuery, onBack 
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={
-                  <span style={{ color: '#8B7355', fontSize: 14 }}>
-                    演示模式：智能搜索功能后端实现后将返回结果
-                  </span>
+                  <div style={{ color: '#8B7355', fontSize: 14, lineHeight: 1.8 }}>
+                    <div>未找到匹配照片，可以换个描述再试。</div>
+                    <div style={{ fontSize: 12, color: '#9A8A78' }}>如果刚上传照片，请等待 AI 分析和索引完成后再搜索。</div>
+                  </div>
                 }
               />
+              <div style={{ marginTop: 18, display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 8 }}>
+                {exampleQueries.slice(0, 4).map(query => (
+                  <Tag
+                    key={query}
+                    onClick={() => {
+                      setSearchQuery(query);
+                      performSearch(query);
+                    }}
+                    style={{ cursor: 'pointer', borderRadius: 14, padding: '4px 12px', color: '#5B7B5E' }}
+                  >
+                    试试：{query}
+                  </Tag>
+                ))}
+              </div>
             </div>
           )
         ) : null}

@@ -8,9 +8,10 @@ import {
   CrownOutlined,
   LogoutOutlined,
   AppstoreOutlined,
-  ProfileOutlined
+  ProfileOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
-import { Input, Button, message, Dropdown } from 'antd';
+import { Avatar, Input, Button, message, Dropdown } from 'antd';
 import Login from './components/Login';
 import HomeDashboard from './components/HomeDashboard';
 import AIChat from './components/AIChat';
@@ -23,6 +24,7 @@ import ProfilePanel from './components/ProfilePanel';
 import Membership from './components/Membership';
 import RecycleBin from './components/RecycleBin';
 import AdminDashboard from './components/AdminDashboard';
+import AboutPanel from './components/AboutPanel';
 import { userAPI } from './services/api';
 import './styles/biophilic-theme.css';
 import './App.css';
@@ -38,9 +40,10 @@ export interface AppUser {
   isSuperAdmin?: boolean;
   roles?: string[];
   permissions?: string[];
+  avatarFilename?: string;
 }
 
-export type AppView = 'home' | 'chat' | 'faces' | 'gallery' | 'recycle' | 'search' | 'transfer' | 'settings' | 'membership' | 'profile';
+export type AppView = 'home' | 'chat' | 'faces' | 'gallery' | 'recycle' | 'search' | 'transfer' | 'settings' | 'membership' | 'profile' | 'about';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -127,7 +130,7 @@ function App() {
   const isAdmin = currentUser.isSuperAdmin || currentUser.roles?.includes('SUPER_ADMIN') || currentUser.roles?.includes('ADMIN');
 
   if (isAdmin) {
-    return <AdminDashboard currentUser={currentUser} onLogout={handleLogout} />;
+    return <AdminDashboard currentUser={currentUser} onLogout={handleLogout} onUserUpdated={setCurrentUser} />;
   }
 
   const sidebarWidth = 220;
@@ -209,6 +212,17 @@ function App() {
             </span>
             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               设置
+            </span>
+          </button>
+          <button
+            className={`biophilic-sidebar-item ${activeView === 'about' ? 'active' : ''}`}
+            onClick={() => setActiveView('about')}
+          >
+            <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}>
+              <InfoCircleOutlined />
+            </span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              关于我们
             </span>
           </button>
         </div>
@@ -331,7 +345,7 @@ function App() {
                 cursor: 'pointer',
                 transition: 'all 200ms ease',
               }}>
-                <UserOutlined style={{ color: '#5B7B5E' }} />
+                <Avatar size={24} src={currentUser.avatarFilename ? userAPI.getAvatarUrl() : userAPI.getDefaultAvatarUrl()} icon={<UserOutlined />} style={{ background: '#7D9B76' }} />
                 <span style={{ color: '#3D5A40', fontSize: 14, fontWeight: 500 }}>
                   {currentUser?.nickname || currentUser?.username}
                 </span>
@@ -390,7 +404,7 @@ function App() {
             <TransferPanel userId={currentUser.id} folderId={galleryFolderId} />
           )}
           {activeView === 'settings' && (
-            <SettingsPanel />
+            <SettingsPanel user={currentUser} onUserUpdated={setCurrentUser} />
           )}
           {activeView === 'membership' && (
             <Membership
@@ -401,6 +415,9 @@ function App() {
           )}
           {activeView === 'profile' && (
             <ProfilePanel user={currentUser} />
+          )}
+          {activeView === 'about' && (
+            <AboutPanel />
           )}
         </main>
       </div>

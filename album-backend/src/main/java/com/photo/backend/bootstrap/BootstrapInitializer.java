@@ -5,11 +5,13 @@ import com.photo.backend.common.entity.Role;
 import com.photo.backend.common.entity.RolePermission;
 import com.photo.backend.common.entity.User;
 import com.photo.backend.common.entity.UserRole;
+import com.photo.backend.common.entity.UserPermission;
 import com.photo.backend.common.repository.PermissionRepository;
 import com.photo.backend.common.repository.RolePermissionRepository;
 import com.photo.backend.common.repository.RoleRepository;
 import com.photo.backend.common.repository.UserRepository;
 import com.photo.backend.common.repository.UserRoleRepository;
+import com.photo.backend.common.repository.UserPermissionRepository;
 import com.photo.backend.user.service.RbacService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
@@ -45,6 +47,8 @@ public class BootstrapInitializer implements ApplicationRunner {
     private UserRoleRepository userRoleRepository;
     @Autowired
     private RolePermissionRepository rolePermissionRepository;
+    @Autowired
+    private UserPermissionRepository userPermissionRepository;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -89,6 +93,16 @@ public class BootstrapInitializer implements ApplicationRunner {
 
         User normalUser = ensureUser(userUsername, userPassword, userEmail, userNickname, false);
         ensureUserRole(normalUser, userRole);
+
+        for (User user : userRepository.findAll()) {
+            if (!Boolean.TRUE.equals(user.getIsSuperAdmin()) && hasRole(user, adminRole)) {
+                for (Permission permission : permissions) {
+                    if (!permission.getCode().equals("role:assign")) {
+                        ensureUserPermission(user, permission);
+                    }
+                }
+            }
+        }
 
         System.out.println("=== Bootstrap complete ===");
         System.out.println("super admin: username=" + adminUsername);
@@ -157,6 +171,19 @@ public class BootstrapInitializer implements ApplicationRunner {
             userRole.setUserId(user.getId());
             userRole.setRoleId(role.getId());
             userRoleRepository.save(userRole);
+        }
+    }
+
+    private boolean hasRole(User user, Role role) {
+        return userRoleRepository.existsByUserIdAndRoleId(user.getId(), role.getId());
+    }
+
+    private void ensureUserPermission(User user, Permission permission) {
+        if (!userPermissionRepository.existsByUserIdAndPermissionId(user.getId(), permission.getId())) {
+            UserPermission userPermission = new UserPermission();
+            userPermission.setUserId(user.getId());
+            userPermission.setPermissionId(permission.getId());
+            userPermissionRepository.save(userPermission);
         }
     }
 

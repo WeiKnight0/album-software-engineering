@@ -70,7 +70,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleRegister = async (values: { username: string; password: string; email: string; nickname: string }) => {
+  const handleRegister = async (values: { username: string; password: string; confirmPassword: string; email: string; nickname: string }) => {
     setLoading(true);
     setErrorText('');
     try {
@@ -195,6 +195,28 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               className="biophilic-input"
             />
           </Form.Item>
+
+          {isRegisterMode && (
+            <Form.Item
+              name="confirmPassword"
+              dependencies={['password']}
+              rules={[
+                { required: true, message: '请再次输入密码' },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('password') === value) return Promise.resolve();
+                    return Promise.reject(new Error('两次输入的密码不一致'));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password
+                prefix={<LockOutlined style={{ color: '#A8C6A0' }} />}
+                placeholder="确认密码"
+                className="biophilic-input"
+              />
+            </Form.Item>
+          )}
 
           {errorText && (
             <Form.Item style={{ marginBottom: 12 }}>

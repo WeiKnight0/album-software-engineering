@@ -1,19 +1,16 @@
 package com.photo.backend.admin.controller;
 
 import com.photo.backend.admin.dto.AdminUserDTO;
-import com.photo.backend.admin.dto.AdminRoleDTO;
 import com.photo.backend.admin.entity.AdminAuditLog;
 import com.photo.backend.admin.repository.AdminAuditLogRepository;
 import com.photo.backend.admin.service.AdminAuditLogService;
 import com.photo.backend.common.dto.ApiResponse;
 import com.photo.backend.common.entity.DownloadTask;
-import com.photo.backend.common.entity.Role;
 import com.photo.backend.common.entity.Permission;
 import com.photo.backend.common.entity.UploadTask;
 import com.photo.backend.common.entity.User;
 import com.photo.backend.common.repository.DownloadTaskRepository;
 import com.photo.backend.common.repository.PermissionRepository;
-import com.photo.backend.common.repository.RoleRepository;
 import com.photo.backend.common.repository.UploadTaskRepository;
 import com.photo.backend.rag.entity.RagPerformanceLog;
 import com.photo.backend.rag.repository.RagPerformanceLogRepository;
@@ -39,8 +36,6 @@ public class AdminController {
     private UserService userService;
     @Autowired
     private RbacService rbacService;
-    @Autowired
-    private RoleRepository roleRepository;
     @Autowired
     private PermissionRepository permissionRepository;
     @Autowired
@@ -75,19 +70,24 @@ public class AdminController {
         try {
             User current = requirePermission(authHeader, "user:create");
             String role = stringValue(payload.get("role"), RbacService.ROLE_USER);
+            String password = stringValue(payload.get("password"), null);
+            String confirmPassword = stringValue(payload.get("confirmPassword"), null);
+            if (password == null || !password.equals(confirmPassword)) {
+                throw new RuntimeException("两次输入的密码不一致");
+            }
             boolean createAdmin = RbacService.ROLE_ADMIN.equals(role);
             if (createAdmin) {
                 rbacService.requireSuperAdmin(current);
             }
             User user = userService.createUser(
                     stringValue(payload.get("username"), null),
-                    stringValue(payload.get("password"), null),
+                    password,
                     stringValue(payload.get("email"), null),
                     stringValue(payload.get("nickname"), ""),
                     createAdmin,
                     false
             );
-            adminAuditLogService.record(current, "USER_CREATE", "USER", user.getId(), "role=" + role + ", username=" + user.getUsername());
+            adminAuditLogService.record(current, "INFO", "USER", "USER_CREATE", "USER", user.getId(), "role=" + role + ", username=" + user.getUsername(), true);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(AdminUserDTO.from(user, rbacService.getRoleCodes(user.getId())), "用户创建成功"));
         } catch (Exception e) {
@@ -104,7 +104,7 @@ public class AdminController {
             User current = requirePermission(authHeader, "user:update");
             Integer status = payload.get("status");
             User user = userService.updateUserStatus(id, status);
-            adminAuditLogService.record(current, "USER_STATUS_UPDATE", "USER", id, "status=" + status);
+            adminAuditLogService.record(current, "INFO", "USER", "USER_STATUS_UPDATE", "USER", id, "status=" + status, true);
             return ResponseEntity.ok(ApiResponse.success(AdminUserDTO.from(user, rbacService.getRoleCodes(user.getId()))));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error("更新状态失败: " + e.getMessage(), "ADMIN_UPDATE_STATUS_FAILED"));
@@ -121,7 +121,7 @@ public class AdminController {
             boolean isMember = Boolean.TRUE.equals(payload.get("isMember"));
             LocalDateTime expireAt = isMember ? LocalDateTime.now().plusYears(1) : null;
             User user = userService.updateMembership(id, isMember, expireAt);
-            adminAuditLogService.record(current, "USER_MEMBERSHIP_UPDATE", "USER", id, "isMember=" + isMember + ", expireAt=" + expireAt);
+            adminAuditLogService.record(current, "INFO", "USER", "USER_MEMBERSHIP_UPDATE", "USER", id, "isMember=" + isMember + ", expireAt=" + expireAt, true);
             return ResponseEntity.ok(ApiResponse.success(AdminUserDTO.from(user, rbacService.getRoleCodes(user.getId()))));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error("更新会员失败: " + e.getMessage(), "ADMIN_UPDATE_MEMBERSHIP_FAILED"));
@@ -137,7 +137,7 @@ public class AdminController {
             User current = requirePermission(authHeader, "user:update");
             Long storageLimit = payload.get("storageLimit");
             User user = userService.updateStorageLimit(id, storageLimit);
-            adminAuditLogService.record(current, "USER_STORAGE_LIMIT_UPDATE", "USER", id, "storageLimit=" + storageLimit);
+            adminAuditLogService.record(current, "INFO", "USER", "USER_STORAGE_LIMIT_UPDATE", "USER", id, "storageLimit=" + storageLimit, true);
             return ResponseEntity.ok(ApiResponse.success(AdminUserDTO.from(user, rbacService.getRoleCodes(user.getId()))));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error("更新存储配额失败: " + e.getMessage(), "ADMIN_UPDATE_STORAGE_FAILED"));
@@ -150,55 +150,10 @@ public class AdminController {
             @PathVariable Integer id,
             @RequestBody Map<String, List<String>> payload) {
         try {
-            User current = requirePermission(authHeader, "role:assign");
-            rbacService.requireSuperAdmin(current);
-            List<String> roles = payload.get("roles");
-            if (roles == null || roles.contains(RbacService.ROLE_SUPER_ADMIN)) {
-                throw new RuntimeException("不能通过接口分配超级管理员角色");
-            }
-            rbacService.replaceUserRoles(id, roles);
-            User user = userService.getUserById(id);
-            adminAuditLogService.record(current, "USER_ROLES_UPDATE", "USER", id, "roles=" + roles);
-            return ResponseEntity.ok(ApiResponse.success(AdminUserDTO.from(user, rbacService.getRoleCodes(user.getId()))));
+            requirePermission(authHeader, "role:assign");
+            return ResponseEntity.badRequest().body(ApiResponse.error("账号角色创建后不可修改", "ROLE_CHANGE_NOT_ALLOWED"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error("更新角色失败: " + e.getMessage(), "ADMIN_UPDATE_ROLES_FAILED"));
-        }
-    }
-
-    @GetMapping("/roles")
-    public ResponseEntity<ApiResponse<List<AdminRoleDTO>>> getRoles(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        try {
-            requirePermission(authHeader, "role:view");
-            List<AdminRoleDTO> roles = roleRepository.findAll().stream()
-                    .map(role -> AdminRoleDTO.from(role, rbacService.getPermissionCodesByRole(role.getId())))
-                    .toList();
-            return ResponseEntity.ok(ApiResponse.success(roles));
-        } catch (Exception e) {
-            return forbidden(e);
-        }
-    }
-
-    @PutMapping("/roles/{id}/permissions")
-    public ResponseEntity<ApiResponse<AdminRoleDTO>> updateRolePermissions(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @PathVariable Integer id,
-            @RequestBody Map<String, List<String>> payload) {
-        try {
-            User current = requirePermission(authHeader, "role:assign");
-            rbacService.requireSuperAdmin(current);
-            Role role = roleRepository.findById(id).orElseThrow(() -> new RuntimeException("Role not found"));
-            if (RbacService.ROLE_SUPER_ADMIN.equals(role.getCode())) {
-                throw new RuntimeException("不能修改超级管理员权限");
-            }
-            List<String> permissions = payload.get("permissions");
-            if (permissions == null) {
-                throw new RuntimeException("permissions is required");
-            }
-            rbacService.replaceRolePermissions(id, permissions);
-            adminAuditLogService.record(current, "ROLE_PERMISSIONS_UPDATE", "ROLE", id, "role=" + role.getCode() + ", permissions=" + permissions);
-            return ResponseEntity.ok(ApiResponse.success(AdminRoleDTO.from(role, rbacService.getPermissionCodesByRole(id)), "角色权限更新成功"));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("更新角色权限失败: " + e.getMessage(), "ADMIN_UPDATE_ROLE_PERMISSIONS_FAILED"));
         }
     }
 
@@ -209,6 +164,49 @@ public class AdminController {
             return ResponseEntity.ok(ApiResponse.success(permissionRepository.findAll()));
         } catch (Exception e) {
             return forbidden(e);
+        }
+    }
+
+    @GetMapping("/users/{id}/permissions")
+    public ResponseEntity<ApiResponse<List<String>>> getUserPermissions(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Integer id) {
+        try {
+            requirePermission(authHeader, "role:view");
+            User user = userService.getUserById(id);
+            if (!rbacService.hasRole(user.getId(), RbacService.ROLE_ADMIN) || Boolean.TRUE.equals(user.getIsSuperAdmin())) {
+                return ResponseEntity.ok(ApiResponse.success(List.of()));
+            }
+            return ResponseEntity.ok(ApiResponse.success(rbacService.getUserPermissionCodes(id)));
+        } catch (Exception e) {
+            return forbidden(e);
+        }
+    }
+
+    @PutMapping("/users/{id}/permissions")
+    public ResponseEntity<ApiResponse<List<String>>> updateUserPermissions(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Integer id,
+            @RequestBody Map<String, List<String>> payload) {
+        try {
+            User current = requirePermission(authHeader, "role:assign");
+            rbacService.requireSuperAdmin(current);
+            User target = userService.getUserById(id);
+            if (Boolean.TRUE.equals(target.getIsSuperAdmin())) {
+                throw new RuntimeException("超级管理员拥有全部权限，无需分配");
+            }
+            if (!rbacService.hasRole(target.getId(), RbacService.ROLE_ADMIN)) {
+                throw new RuntimeException("普通用户不需要分配后台权限");
+            }
+            List<String> permissions = payload.get("permissions");
+            if (permissions == null) {
+                throw new RuntimeException("permissions is required");
+            }
+            rbacService.replaceUserPermissions(id, permissions);
+            adminAuditLogService.recordPermission(current, "USER_PERMISSIONS_UPDATE", id, "username=" + target.getUsername() + ", permissions=" + permissions, true);
+            return ResponseEntity.ok(ApiResponse.success(rbacService.getUserPermissionCodes(id), "管理员权限更新成功"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("更新管理员权限失败: " + e.getMessage(), "ADMIN_UPDATE_USER_PERMISSIONS_FAILED"));
         }
     }
 
@@ -266,25 +264,30 @@ public class AdminController {
                     .append(escape(log.getErrorMessage())).append(',')
                     .append(log.getCreatedAt()).append('\n');
         }
-        adminAuditLogService.record(current, "RAG_LOG_EXPORT", "LOG", "rag", "exported rag logs");
+        adminAuditLogService.record(current, "INFO", "RAG", "RAG_LOG_EXPORT", "LOG", "rag", "exported rag logs", true);
         return csvResponse(csv.toString(), "rag-logs.csv");
     }
 
     @GetMapping("/logs/audit/export")
     public ResponseEntity<byte[]> exportAuditLogs(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         User current = requirePermission(authHeader, "log:export");
-        StringBuilder csv = new StringBuilder("id,operatorId,operatorUsername,action,targetType,targetId,detail,createdAt\n");
+        StringBuilder csv = new StringBuilder("id,level,category,success,operatorId,operatorUsername,action,targetType,targetId,detail,ipAddress,requestPath,createdAt\n");
         for (AdminAuditLog log : adminAuditLogRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))) {
             csv.append(log.getId()).append(',')
+                    .append(escape(log.getLevel())).append(',')
+                    .append(escape(log.getCategory())).append(',')
+                    .append(log.getSuccess()).append(',')
                     .append(log.getOperatorId()).append(',')
                     .append(escape(log.getOperatorUsername())).append(',')
                     .append(escape(log.getAction())).append(',')
                     .append(escape(log.getTargetType())).append(',')
                     .append(escape(log.getTargetId())).append(',')
                     .append(escape(log.getDetail())).append(',')
+                    .append(escape(log.getIpAddress())).append(',')
+                    .append(escape(log.getRequestPath())).append(',')
                     .append(log.getCreatedAt()).append('\n');
         }
-        adminAuditLogService.record(current, "AUDIT_LOG_EXPORT", "LOG", "audit", "exported audit logs");
+        adminAuditLogService.record(current, "INFO", "ADMIN", "AUDIT_LOG_EXPORT", "LOG", "audit", "exported audit logs", true);
         return csvResponse(csv.toString(), "audit-logs.csv");
     }
 
@@ -304,7 +307,7 @@ public class AdminController {
                     .append(task.getCreatedAt()).append(',')
                     .append(task.getCompletedAt()).append('\n');
         }
-        adminAuditLogService.record(current, "UPLOAD_TASK_EXPORT", "TASK", "upload", "exported upload tasks");
+        adminAuditLogService.recordTask(current, "UPLOAD_TASK_EXPORT", "upload", "exported upload tasks", true);
         return csvResponse(csv.toString(), "upload-tasks.csv");
     }
 
@@ -324,7 +327,7 @@ public class AdminController {
                     .append(task.getCreatedAt()).append(',')
                     .append(task.getCompletedAt()).append('\n');
         }
-        adminAuditLogService.record(current, "DOWNLOAD_TASK_EXPORT", "TASK", "download", "exported download tasks");
+        adminAuditLogService.recordTask(current, "DOWNLOAD_TASK_EXPORT", "download", "exported download tasks", true);
         return csvResponse(csv.toString(), "download-tasks.csv");
     }
 

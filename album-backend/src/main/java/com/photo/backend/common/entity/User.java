@@ -27,6 +27,9 @@ public class User {
     @Column(name = "nickname", length = 50, columnDefinition = "VARCHAR(50) DEFAULT ''")
     private String nickname = "";
 
+    @Column(name = "avatar_filename", length = 255)
+    private String avatarFilename;
+
     @Column(name = "is_member", columnDefinition = "TINYINT(1) DEFAULT 0")
     private Boolean isMember = false;
 
@@ -89,6 +92,14 @@ public class User {
 
     public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public String getAvatarFilename() {
+        return avatarFilename;
+    }
+
+    public void setAvatarFilename(String avatarFilename) {
+        this.avatarFilename = avatarFilename;
     }
 
     public Boolean getIsMember() {

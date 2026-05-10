@@ -97,6 +97,7 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
   const [uploadKey, setUploadKey] = useState(0);
   const isUploadingRef = useRef(false);
   const pendingFilesRef = useRef<File[]>([]);
+  const taskFilesRef = useRef<Record<string, Record<number, File>>>({});
   const processTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchTasks = async () => {
@@ -110,7 +111,7 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
       const response = await uploadTaskAPI.getTasks(userId);
       setTasks(response.data.data || []);
     } catch (error) {
-      console.error('Failed to fetch upload tasks:', error);
+      console.error('获取上传任务失败:', error);
     } finally {
       setLoading(false);
     }
@@ -143,18 +144,22 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
     }));
     let taskId = '';
     try {
-      const response = await uploadTaskAPI.createTask(userId, 'Batch Upload', fileInfos);
+      const response = await uploadTaskAPI.createTask(userId, '批量上传', fileInfos);
       taskId = response.data.data.taskId;
+      taskFilesRef.current[taskId] = files.reduce<Record<number, File>>((acc, file, index) => {
+        acc[index] = file;
+        return acc;
+      }, {});
 
       for (let i = 0; i < files.length; i++) {
         await uploadTaskAPI.uploadFile(taskId, userId, files[i], i, folderId);
       }
-        message.success('Upload completed');
+      message.success('上传完成');
       fetchTasks();
     } catch (error: any) {
       const msg = error.response?.data?.message || '上传任务失败';
       message.error(msg);
-      console.error('Upload task error:', error);
+      console.error('上传任务失败:', error);
     } finally {
       isUploadingRef.current = false;
       setUploadKey(prev => prev + 1);
@@ -181,13 +186,18 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
     }
   };
 
-  const handleRetry = async (taskId: string) => {
+  const handleRetryFile = async (taskId: string, fileIndex: number) => {
+    const file = taskFilesRef.current[taskId]?.[fileIndex];
+    if (!file) {
+      message.warning('无法直接重试：页面刷新后无法读取原始文件，请重新选择文件上传。');
+      return;
+    }
     try {
-      await uploadTaskAPI.retry(taskId, userId);
-      message.success('已重试');
+      await uploadTaskAPI.uploadFile(taskId, userId, file, fileIndex, folderId);
+      message.success('已重新上传');
       fetchTasks();
-    } catch (error) {
-      message.error('操作失败');
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '重新上传失败');
     }
   };
 
@@ -252,10 +262,10 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
               <InboxOutlined style={{ fontSize: 48, color: '#7D9B76' }} />
             </p>
             <p style={{ color: '#5B7B5E', fontSize: 16, fontWeight: 500 }}>
-              Click or drag photos here to upload
+              点击或拖拽照片到这里上传
             </p>
             <p style={{ color: '#8B7355', fontSize: 13 }}>
-              Supports batch upload, max 10MB per file
+              支持批量上传，单个文件最大 10MB
             </p>
           </div>
         </Upload.Dragger>
@@ -278,7 +288,7 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {tasks.map(task => {
-              const statusInfo = STATUS_MAP[task.status] || { label: 'Unknown', color: '#999' };
+              const statusInfo = STATUS_MAP[task.status] || { label: '未知', color: '#999' };
               const isExpanded = expandedTaskId === task.taskId;
               const files = task.files || [];
               const summary = getAnalysisSummary(files);
@@ -343,22 +353,17 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       {task.status === 2 && (
-                        <button onClick={() => handlePause(task.taskId)} style={actionBtnStyle} title="Pause">
+                        <button onClick={() => handlePause(task.taskId)} style={actionBtnStyle} title="暂停">
                           <PauseCircleOutlined />
                         </button>
                       )}
                       {task.status === 5 && (
-                        <button onClick={() => handleResume(task.taskId)} style={actionBtnStyle} title="Resume">
+                        <button onClick={() => handleResume(task.taskId)} style={actionBtnStyle} title="继续">
                           <PlayCircleOutlined />
                         </button>
                       )}
-                      {(task.status === 4 || task.status === 3) && (
-                        <button onClick={() => handleRetry(task.taskId)} style={actionBtnStyle} title="Retry">
-                          <RedoOutlined />
-                        </button>
-                      )}
                       {task.status !== 2 && (
-                        <button onClick={() => handleCleanup(task.taskId)} style={{ ...actionBtnStyle, color: '#c45c48' }} title="Clean up">
+                        <button onClick={() => handleCleanup(task.taskId)} style={{ ...actionBtnStyle, color: '#c45c48' }} title="清理临时文件">
                           <DeleteOutlined />
                         </button>
                       )}
@@ -382,7 +387,7 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
                   {/* Single file: show analysis status directly without expandable title */}
                   {isSingleFile && files[0] && (
                     <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(168,198,160,0.15)' }}>
-                      <FileRow file={files[0]} formatFileSize={formatFileSize} />
+                      <FileRow file={files[0]} taskId={task.taskId} formatFileSize={formatFileSize} onRetry={handleRetryFile} />
                     </div>
                   )}
 
@@ -391,7 +396,7 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
                     <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(168,198,160,0.15)' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {files.map(file => (
-                          <FileRow key={file.fileIndex} file={file} formatFileSize={formatFileSize} />
+                          <FileRow key={file.fileIndex} file={file} taskId={task.taskId} formatFileSize={formatFileSize} onRetry={handleRetryFile} />
                         ))}
                       </div>
                     </div>
@@ -406,7 +411,12 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
   );
 };
 
-const FileRow: React.FC<{ file: UploadFileItem; formatFileSize: (s: number) => string }> = ({ file, formatFileSize }) => {
+const FileRow: React.FC<{
+  file: UploadFileItem;
+  taskId: string;
+  formatFileSize: (s: number) => string;
+  onRetry: (taskId: string, fileIndex: number) => void;
+}> = ({ file, taskId, formatFileSize, onRetry }) => {
   const analysis = ANALYSIS_MAP[file.analysisStatus] || ANALYSIS_MAP['NONE'];
   return (
     <div
@@ -432,22 +442,28 @@ const FileRow: React.FC<{ file: UploadFileItem; formatFileSize: (s: number) => s
           </span>
         )}
       </div>
-      <Tag
-        style={{
-          margin: 0,
-          fontSize: 11,
-          color: analysis.color,
-          background: analysis.bg,
-          borderColor: `${analysis.color}30`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          flexShrink: 0,
-        }}
-      >
-        {analysis.spinning && <Spin size="small" style={{ fontSize: 10 }} />}
-        {analysis.label}
-      </Tag>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {file.status === 4 && (
+          <button onClick={() => onRetry(taskId, file.fileIndex)} style={actionBtnStyle} title="重新上传">
+            <RedoOutlined />
+          </button>
+        )}
+        <Tag
+          style={{
+            margin: 0,
+            fontSize: 11,
+            color: analysis.color,
+            background: analysis.bg,
+            borderColor: `${analysis.color}30`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          {analysis.spinning && <Spin size="small" style={{ fontSize: 10 }} />}
+          {analysis.label}
+        </Tag>
+      </div>
     </div>
   );
 };

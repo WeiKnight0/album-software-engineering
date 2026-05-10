@@ -7,12 +7,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UserService {
@@ -23,6 +30,9 @@ public class UserService {
 
     @Autowired
     private RbacService rbacService;
+
+    @Value("${avatar.base-path:avatars}")
+    private String avatarBasePath;
 
     private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final String JWT_SECRET = "your-very-secret-key-for-jwt-token-generation-must-be-long-enough";
@@ -69,7 +79,51 @@ public class UserService {
         user.setIsSuperAdmin(isSuperAdmin);
         User savedUser = userRepository.save(user);
         rbacService.assignRole(savedUser.getId(), isSuperAdmin ? RbacService.ROLE_SUPER_ADMIN : (isAdmin ? RbacService.ROLE_ADMIN : RbacService.ROLE_USER));
+        if (isAdmin && !isSuperAdmin) {
+            rbacService.replaceUserPermissions(savedUser.getId(), rbacService.getDefaultAdminPermissionCodes());
+        }
         return savedUser;
+    }
+
+    public User uploadAvatar(Integer userId, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("头像文件不能为空");
+        }
+        if (file.getSize() > 2L * 1024 * 1024) {
+            throw new RuntimeException("头像文件不能超过 2MB");
+        }
+        String contentType = file.getContentType() != null ? file.getContentType().toLowerCase() : "";
+        String ext;
+        if (contentType.contains("png")) {
+            ext = ".png";
+        } else if (contentType.contains("webp")) {
+            ext = ".webp";
+        } else if (contentType.contains("jpeg") || contentType.contains("jpg")) {
+            ext = ".jpg";
+        } else {
+            throw new RuntimeException("仅支持 JPG、PNG、WEBP 头像");
+        }
+
+        User user = getUserById(userId);
+        Path avatarDir = Paths.get(avatarBasePath);
+        Files.createDirectories(avatarDir);
+        if (user.getAvatarFilename() != null && !user.getAvatarFilename().isBlank()) {
+            Files.deleteIfExists(avatarDir.resolve(user.getAvatarFilename()).normalize());
+        }
+        String filename = userId + "_" + UUID.randomUUID() + ext;
+        Path target = avatarDir.resolve(filename).normalize();
+        file.transferTo(target.toFile());
+        user.setAvatarFilename(filename);
+        return userRepository.save(user);
+    }
+
+    public Path getAvatarPath(Integer userId) {
+        User user = getUserById(userId);
+        if (user.getAvatarFilename() == null || user.getAvatarFilename().isBlank()) {
+            return null;
+        }
+        Path path = Paths.get(avatarBasePath).resolve(user.getAvatarFilename()).normalize();
+        return Files.exists(path) ? path : null;
     }
 
     public String login(String username, String password) {
@@ -123,6 +177,25 @@ public class UserService {
         }
 
         return userRepository.save(user);
+    }
+
+    public void updatePassword(Integer userId, String currentPassword, String newPassword) {
+        if (currentPassword == null || currentPassword.isBlank()) {
+            throw new RuntimeException("当前密码不能为空");
+        }
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new RuntimeException("新密码不能为空");
+        }
+        if (newPassword.length() < 6) {
+            throw new RuntimeException("新密码至少需要 6 位");
+        }
+
+        User user = getUserById(userId);
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new RuntimeException("当前密码不正确");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
     public User getUserById(Integer userId) {
