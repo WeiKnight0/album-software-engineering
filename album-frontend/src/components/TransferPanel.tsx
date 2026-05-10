@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { CloudUploadOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import UploadTaskPanel from './UploadTaskPanel';
 import DownloadTaskPanel from './DownloadTaskPanel';
 
@@ -11,14 +12,20 @@ interface TransferPanelProps {
 type TransferTab = 'upload' | 'download';
 
 const TransferPanel: React.FC<TransferPanelProps> = ({ userId, folderId }) => {
-  const [activeTab, setActiveTab] = useState<TransferTab>('upload');
+  const navigate = useNavigate();
+  const { tab } = useParams();
+  const activeTab = tab as TransferTab;
+
+  if (activeTab !== 'upload' && activeTab !== 'download') {
+    return <Navigate to="/transfer/upload" replace />;
+  }
 
   return (
     <div className="biophilic-card" style={{ display: 'flex', height: 'calc(100vh - 112px)', overflow: 'hidden' }}>
       {/* 左侧标签 */}
       <div style={{ width: 180, borderRight: '1px solid rgba(168,198,160,0.2)', padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
         <button
-          onClick={() => setActiveTab('upload')}
+          onClick={() => navigate('/transfer/upload')}
           style={{
             padding: '16px',
             borderRadius: '16px 16px 16px 4px',
@@ -38,7 +45,7 @@ const TransferPanel: React.FC<TransferPanelProps> = ({ userId, folderId }) => {
           上传
         </button>
         <button
-          onClick={() => setActiveTab('download')}
+          onClick={() => navigate('/transfer/download')}
           style={{
             padding: '16px',
             borderRadius: '16px 16px 16px 4px',

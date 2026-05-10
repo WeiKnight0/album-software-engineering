@@ -54,7 +54,7 @@ public class ImageController {
             }
 
             return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(image, "鍥剧墖涓婁紶鎴愬姛"));
+                .body(ApiResponse.success(image, "图片上传成功"));
         } catch (IOException e) {
             logger.error("IOException in upload: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -110,7 +110,7 @@ public class ImageController {
             } else {
                 imageService.deleteImage(id, userId);
             }
-            return ResponseEntity.ok(ApiResponse.success("鍥剧墖鍒犻櫎鎴愬姛"));
+            return ResponseEntity.ok(ApiResponse.success("图片删除成功"));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error(e.getMessage(), "DELETE_FAILED"));
@@ -129,12 +129,12 @@ public class ImageController {
 
             if (restore != null && restore) {
                 imageService.restoreImage(id, userId);
-                return ResponseEntity.ok(ApiResponse.success("鍥剧墖鎭㈠鎴愬姛"));
+                return ResponseEntity.ok(ApiResponse.success("图片恢复成功"));
             }
 
             if (newFolderId != null) {
                 imageService.moveImage(id, userId, newFolderId);
-                return ResponseEntity.ok(ApiResponse.success("鍥剧墖绉诲姩鎴愬姛"));
+                return ResponseEntity.ok(ApiResponse.success("图片移动成功"));
             }
 
             return ResponseEntity.badRequest()

@@ -222,6 +222,81 @@ public class FaceService {
             .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<Image> searchImagesByFaceName(Integer userId, String query) {
+        if (userId == null || userId <= 0 || query == null || query.isBlank()) {
+            return List.of();
+        }
+        String keyword = query.trim();
+        if (keyword.length() > 100) {
+            keyword = keyword.substring(0, 100);
+        }
+
+        List<Face> faces = faceRepository.findByUserIdAndFaceNameContainingIgnoreCaseOrderByIdAsc(userId, keyword);
+        if (faces.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> imageIds = faces.stream()
+            .flatMap(face -> faceAppearanceRepository.findByFaceId(face.getId()).stream())
+            .map(FaceAppearance::getImageId)
+            .distinct()
+            .toList();
+
+        if (imageIds.isEmpty()) {
+            return List.of();
+        }
+
+        return imageRepository.findAllById(imageIds).stream()
+            .filter(img -> !Boolean.TRUE.equals(img.getIsInRecycleBin()))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Image> searchImagesByMentionedFaceNames(Integer userId, String text) {
+        if (userId == null || userId <= 0 || text == null || text.isBlank()) {
+            return List.of();
+        }
+        String normalizedText = text.trim().toLowerCase();
+        List<Face> matchedFaces = faceRepository.findByUserId(userId).stream()
+            .filter(face -> face.getFaceName() != null && !face.getFaceName().isBlank())
+            .filter(face -> normalizedText.contains(face.getFaceName().trim().toLowerCase()))
+            .toList();
+
+        if (matchedFaces.isEmpty()) {
+            return searchImagesByFaceName(userId, text);
+        }
+
+        List<String> imageIds = matchedFaces.stream()
+            .flatMap(face -> faceAppearanceRepository.findByFaceId(face.getId()).stream())
+            .map(FaceAppearance::getImageId)
+            .distinct()
+            .toList();
+
+        if (imageIds.isEmpty()) {
+            return List.of();
+        }
+
+        return imageRepository.findAllById(imageIds).stream()
+            .filter(img -> !Boolean.TRUE.equals(img.getIsInRecycleBin()))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getFaceNamesByImageId(Integer userId, String imageId) {
+        if (userId == null || userId <= 0 || imageId == null || imageId.isBlank()) {
+            return List.of();
+        }
+        return faceAppearanceRepository.findByImageId(imageId).stream()
+            .map(FaceAppearance::getFaceId)
+            .distinct()
+            .map(faceId -> faceRepository.findByIdAndUserId(faceId, userId).orElse(null))
+            .filter(face -> face != null && face.getFaceName() != null && !face.getFaceName().isBlank())
+            .map(face -> face.getFaceName().trim())
+            .distinct()
+            .toList();
+    }
+
     /**
      * 校验识别入库所需的最小参数。
      */

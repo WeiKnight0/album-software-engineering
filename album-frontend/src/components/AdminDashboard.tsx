@@ -114,6 +114,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
   const [ragPageSize, setRagPageSize] = useState(10);
   const [uploadPageSize, setUploadPageSize] = useState(10);
   const [downloadPageSize, setDownloadPageSize] = useState(10);
+  const [auditPage, setAuditPage] = useState(1);
+  const [ragPage, setRagPage] = useState(1);
+  const [uploadPage, setUploadPage] = useState(1);
+  const [downloadPage, setDownloadPage] = useState(1);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [ragTotal, setRagTotal] = useState(0);
+  const [uploadTotal, setUploadTotal] = useState(0);
+  const [downloadTotal, setDownloadTotal] = useState(0);
   const [auditCategory, setAuditCategory] = useState<string | undefined>();
   const [auditLevel, setAuditLevel] = useState<string | undefined>();
   const [uploadTaskKeyword, setUploadTaskKeyword] = useState('');
@@ -121,6 +129,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
   const [uploadTaskStatus, setUploadTaskStatus] = useState<number | undefined>();
   const [downloadTaskStatus, setDownloadTaskStatus] = useState<number | undefined>();
   const [adminKeyword, setAdminKeyword] = useState('');
+  const [activeAuditTab, setActiveAuditTab] = useState('all');
   const [form] = Form.useForm();
   const activeView = adminPathToView[location.pathname];
 
@@ -139,20 +148,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [usersRes, permissionsRes, logsRes, auditRes, uploadRes, downloadRes] = await Promise.all([
+      const [usersRes, permissionsRes, ragRes, auditRes, uploadRes, downloadRes] = await Promise.all([
         canViewUsers ? adminAPI.getUsers() : Promise.resolve({ data: { data: [] } }),
         canViewRoles ? adminAPI.getPermissions() : Promise.resolve({ data: { data: [] } }),
-        canViewLogs ? adminAPI.getRagLogs() : Promise.resolve({ data: { data: [] } }),
-        canViewLogs ? adminAPI.getAuditLogs() : Promise.resolve({ data: { data: [] } }),
-        canViewTasks ? adminAPI.getUploadTasks() : Promise.resolve({ data: { data: [] } }),
-        canViewTasks ? adminAPI.getDownloadTasks() : Promise.resolve({ data: { data: [] } }),
+        canViewLogs ? adminAPI.getRagLogs({ page: 0, size: 1 }) : Promise.resolve({ data: { data: { totalElements: 0 } } }),
+        canViewLogs ? adminAPI.getAuditLogs({ page: 0, size: 1 }) : Promise.resolve({ data: { data: { totalElements: 0 } } }),
+        canViewTasks ? adminAPI.getUploadTasks({ page: 0, size: 1 }) : Promise.resolve({ data: { data: { totalElements: 0 } } }),
+        canViewTasks ? adminAPI.getDownloadTasks({ page: 0, size: 1 }) : Promise.resolve({ data: { data: { totalElements: 0 } } }),
       ]);
       setUsers(usersRes.data.data || []);
       setPermissions(permissionsRes.data.data || []);
-      setRagLogs(logsRes.data.data || []);
-      setAuditLogs(auditRes.data.data || []);
-      setUploadTasks(uploadRes.data.data || []);
-      setDownloadTasks(downloadRes.data.data || []);
+      setRagTotal(ragRes.data.data?.totalElements || 0);
+      setAuditTotal(auditRes.data.data?.totalElements || 0);
+      setUploadTotal(uploadRes.data.data?.totalElements || 0);
+      setDownloadTotal(downloadRes.data.data?.totalElements || 0);
     } catch (error: any) {
       message.error(error.response?.data?.message || '加载管理数据失败');
     } finally {
@@ -163,6 +172,71 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
   useEffect(() => {
     loadAll();
   }, []);
+
+  const loadAuditLogs = async () => {
+    if (!canViewLogs) return;
+    setLoading(true);
+    try {
+      const response = await adminAPI.getAuditLogs({ page: auditPage - 1, size: auditPageSize, category: auditCategory, level: auditLevel, action: auditAction, keyword: auditKeyword.trim() });
+      const pageData = response.data.data || {};
+      setAuditLogs(pageData.content || []);
+      setAuditTotal(pageData.totalElements || 0);
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '加载审计日志失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadRagLogs = async () => {
+    if (!canViewLogs) return;
+    setLoading(true);
+    try {
+      const response = await adminAPI.getRagLogs({ page: ragPage - 1, size: ragPageSize, operationType: ragOperation, keyword: ragKeyword.trim() });
+      const pageData = response.data.data || {};
+      setRagLogs(pageData.content || []);
+      setRagTotal(pageData.totalElements || 0);
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '加载 RAG 日志失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadUploadTasks = async () => {
+    if (!canViewTasks) return;
+    setLoading(true);
+    try {
+      const response = await adminAPI.getUploadTasks({ page: uploadPage - 1, size: uploadPageSize, status: uploadTaskStatus, keyword: uploadTaskKeyword.trim() });
+      const pageData = response.data.data || {};
+      setUploadTasks(pageData.content || []);
+      setUploadTotal(pageData.totalElements || 0);
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '加载上传任务失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDownloadTasks = async () => {
+    if (!canViewTasks) return;
+    setLoading(true);
+    try {
+      const response = await adminAPI.getDownloadTasks({ page: downloadPage - 1, size: downloadPageSize, status: downloadTaskStatus, keyword: downloadTaskKeyword.trim() });
+      const pageData = response.data.data || {};
+      setDownloadTasks(pageData.content || []);
+      setDownloadTotal(pageData.totalElements || 0);
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '加载下载任务失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadAuditLogs(); }, [auditPage, auditPageSize, auditCategory, auditLevel, auditAction]);
+  useEffect(() => { loadRagLogs(); }, [ragPage, ragPageSize, ragOperation]);
+  useEffect(() => { loadUploadTasks(); }, [uploadPage, uploadPageSize, uploadTaskStatus]);
+  useEffect(() => { loadDownloadTasks(); }, [downloadPage, downloadPageSize, downloadTaskStatus]);
 
   const createUser = async () => {
     if (!canCreateUsers) return;
@@ -223,40 +297,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
   };
 
   const auditActions = Array.from(new Set(auditLogs.map(log => log.action).filter(Boolean))).sort();
-  const auditCategories = Array.from(new Set(auditLogs.map(log => log.category).filter(Boolean))).sort();
-  const auditLevels = Array.from(new Set(auditLogs.map(log => log.level).filter(Boolean))).sort();
-  const ragOperations = Array.from(new Set(ragLogs.map(log => log.operationType).filter(Boolean))).sort();
-  const filteredAuditLogs = auditLogs.filter(log => {
-    if (auditAction && log.action !== auditAction) return false;
-    if (auditCategory && log.category !== auditCategory) return false;
-    if (auditLevel && log.level !== auditLevel) return false;
-    const keyword = auditKeyword.trim().toLowerCase();
-    if (!keyword) return true;
-    return [log.operatorUsername, log.action, log.targetType, log.targetId, log.detail]
-      .some(value => String(value || '').toLowerCase().includes(keyword));
-  });
-  const filteredRagLogs = ragLogs.filter(log => {
-    if (ragOperation && log.operationType !== ragOperation) return false;
-    const keyword = ragKeyword.trim().toLowerCase();
-    if (!keyword) return true;
-    return [log.operationType, log.userId, log.imageId, log.errorMessage]
-      .some(value => String(value || '').toLowerCase().includes(keyword));
-  });
-  const filterTasks = (tasks: any[], keyword: string, status?: number) => tasks.filter(task => {
-    if (status !== undefined && task.status !== status) return false;
-    const text = keyword.trim().toLowerCase();
-    if (!text) return true;
-    return [task.id, task.userId, task.taskName]
-      .some(value => String(value || '').toLowerCase().includes(text));
-  });
-  const filteredUploadTasks = filterTasks(uploadTasks, uploadTaskKeyword, uploadTaskStatus);
-  const filteredDownloadTasks = filterTasks(downloadTasks, downloadTaskKeyword, downloadTaskStatus);
-  const tablePagination = (pageSize: number, setPageSize: (size: number) => void) => ({
+  const auditCategories = ['SYSTEM', 'AUTH', 'USER', 'PERMISSION', 'TASK'];
+  const auditLevels = ['INFO', 'WARN', 'ERROR', 'SECURITY'];
+  const ragOperations = ['CHAT', 'SEARCH', 'INDEX', 'DELETE'];
+  const tablePagination = (current: number, pageSize: number, total: number, setPage: (page: number) => void, setPageSize: (size: number) => void) => ({
+    current,
     pageSize,
+    total,
     showSizeChanger: true,
     pageSizeOptions: [10, 20, 50],
     showTotal: (total: number) => `共 ${total} 条`,
-    onShowSizeChange: (_current: number, size: number) => setPageSize(size),
+    onChange: (page: number, size: number) => {
+      setPage(page);
+      setPageSize(size);
+    },
   });
 
   const userColumns = [
@@ -336,24 +390,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
   ].map(tab => ({
     key: tab.key,
     label: tab.label,
+    category: tab.category,
     children: <>
       <Space wrap style={{ marginBottom: 16 }}>
-        <Input.Search allowClear placeholder="搜索管理员、动作、目标或详情" style={{ width: 280 }} value={auditKeyword} onChange={e => setAuditKeyword(e.target.value)} />
-        <Select allowClear placeholder="按等级筛选" style={{ width: 160 }} value={auditLevel} onChange={setAuditLevel} options={auditLevels.map(level => ({ label: level, value: level }))} />
-        <Select allowClear placeholder="按动作筛选" style={{ width: 220 }} value={auditAction} onChange={setAuditAction} options={auditActions.map(action => ({ label: action, value: action }))} />
-        {!tab.category && <Select allowClear placeholder="按分类筛选" style={{ width: 180 }} value={auditCategory} onChange={setAuditCategory} options={auditCategories.map(category => ({ label: category, value: category }))} />}
-        <Button onClick={() => { setAuditKeyword(''); setAuditAction(undefined); setAuditCategory(undefined); setAuditLevel(undefined); }}>清空筛选</Button>
+        <Input.Search allowClear placeholder="搜索管理员、动作、目标或详情" style={{ width: 280 }} value={auditKeyword} onChange={e => setAuditKeyword(e.target.value)} onSearch={() => { setAuditPage(1); loadAuditLogs(); }} />
+        <Select allowClear placeholder="按等级筛选" style={{ width: 160 }} value={auditLevel} onChange={(value) => { setAuditLevel(value); setAuditPage(1); }} options={auditLevels.map(level => ({ label: level, value: level }))} />
+        <Select allowClear placeholder="按动作筛选" style={{ width: 220 }} value={auditAction} onChange={(value) => { setAuditAction(value); setAuditPage(1); }} options={auditActions.map(action => ({ label: action, value: action }))} />
+        {!tab.category && <Select allowClear placeholder="按分类筛选" style={{ width: 180 }} value={auditCategory} onChange={(value) => { setAuditCategory(value); setAuditPage(1); }} options={auditCategories.map(category => ({ label: category, value: category }))} />}
+        <Button onClick={() => { setAuditKeyword(''); setAuditAction(undefined); setAuditCategory(undefined); setAuditLevel(undefined); setActiveAuditTab('all'); setAuditPage(1); }}>清空筛选</Button>
       </Space>
       <Table
         rowKey="id"
         loading={loading}
-        dataSource={(tab.category ? filteredAuditLogs.filter(log => log.category === tab.category) : filteredAuditLogs)}
+        dataSource={auditLogs}
         columns={auditColumns}
-        pagination={tablePagination(auditPageSize, setAuditPageSize)}
+        pagination={tablePagination(auditPage, auditPageSize, auditTotal, setAuditPage, setAuditPageSize)}
         scroll={{ x: 1300 }}
       />
     </>
   }));
+
+  const handleAuditTabChange = (key: string) => {
+    const category = auditLogTabs.find(tab => tab.key === key)?.category;
+    setActiveAuditTab(key);
+    setAuditCategory(category);
+    setAuditPage(1);
+  };
 
   const taskTabs = [
     {
@@ -361,11 +423,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
       label: '上传任务',
       children: <Card title="上传任务" extra={canExportTasks ? <Button icon={<DownloadOutlined />} onClick={() => exportFile('upload')}>导出 CSV</Button> : null}>
         <Space wrap style={{ marginBottom: 16 }}>
-          <Input.Search allowClear placeholder="搜索任务名、任务ID或用户ID" style={{ width: 280 }} value={uploadTaskKeyword} onChange={e => setUploadTaskKeyword(e.target.value)} />
-          <Select allowClear placeholder="按状态筛选" style={{ width: 160 }} value={uploadTaskStatus} onChange={setUploadTaskStatus} options={taskStatusOptions} />
-          <Button onClick={() => { setUploadTaskKeyword(''); setUploadTaskStatus(undefined); }}>清空筛选</Button>
+          <Input.Search allowClear placeholder="搜索任务名、任务ID或用户ID" style={{ width: 280 }} value={uploadTaskKeyword} onChange={e => setUploadTaskKeyword(e.target.value)} onSearch={() => { setUploadPage(1); loadUploadTasks(); }} />
+          <Select allowClear placeholder="按状态筛选" style={{ width: 160 }} value={uploadTaskStatus} onChange={(value) => { setUploadTaskStatus(value); setUploadPage(1); }} options={taskStatusOptions} />
+          <Button onClick={() => { setUploadTaskKeyword(''); setUploadTaskStatus(undefined); setUploadPage(1); }}>清空筛选</Button>
         </Space>
-        <Table rowKey="id" loading={loading} dataSource={filteredUploadTasks} columns={taskColumns} pagination={tablePagination(uploadPageSize, setUploadPageSize)} scroll={{ x: 900 }} />
+        <Table rowKey="id" loading={loading} dataSource={uploadTasks} columns={taskColumns} pagination={tablePagination(uploadPage, uploadPageSize, uploadTotal, setUploadPage, setUploadPageSize)} scroll={{ x: 900 }} />
       </Card>,
     },
     {
@@ -373,11 +435,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
       label: '下载任务',
       children: <Card title="下载任务" extra={canExportTasks ? <Button icon={<DownloadOutlined />} onClick={() => exportFile('download')}>导出 CSV</Button> : null}>
         <Space wrap style={{ marginBottom: 16 }}>
-          <Input.Search allowClear placeholder="搜索任务名、任务ID或用户ID" style={{ width: 280 }} value={downloadTaskKeyword} onChange={e => setDownloadTaskKeyword(e.target.value)} />
-          <Select allowClear placeholder="按状态筛选" style={{ width: 160 }} value={downloadTaskStatus} onChange={setDownloadTaskStatus} options={taskStatusOptions} />
-          <Button onClick={() => { setDownloadTaskKeyword(''); setDownloadTaskStatus(undefined); }}>清空筛选</Button>
+          <Input.Search allowClear placeholder="搜索任务名、任务ID或用户ID" style={{ width: 280 }} value={downloadTaskKeyword} onChange={e => setDownloadTaskKeyword(e.target.value)} onSearch={() => { setDownloadPage(1); loadDownloadTasks(); }} />
+          <Select allowClear placeholder="按状态筛选" style={{ width: 160 }} value={downloadTaskStatus} onChange={(value) => { setDownloadTaskStatus(value); setDownloadPage(1); }} options={taskStatusOptions} />
+          <Button onClick={() => { setDownloadTaskKeyword(''); setDownloadTaskStatus(undefined); setDownloadPage(1); }}>清空筛选</Button>
         </Space>
-        <Table rowKey="id" loading={loading} dataSource={filteredDownloadTasks} columns={taskColumns} pagination={tablePagination(downloadPageSize, setDownloadPageSize)} scroll={{ x: 900 }} />
+        <Table rowKey="id" loading={loading} dataSource={downloadTasks} columns={taskColumns} pagination={tablePagination(downloadPage, downloadPageSize, downloadTotal, setDownloadPage, setDownloadPageSize)} scroll={{ x: 900 }} />
       </Card>,
     },
   ];
@@ -387,8 +449,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
       <Space style={{ marginBottom: 20 }} size="large" wrap>
         {canViewUsers && <Card><Statistic title="用户总数" value={users.length} /></Card>}
         {canViewUsers && <Card><Statistic title="管理员" value={users.filter(user => user.roles?.includes('ADMIN') || user.isSuperAdmin).length} /></Card>}
-        {canViewTasks && <Card><Statistic title="上传任务" value={uploadTasks.length} /></Card>}
-        {canViewTasks && <Card><Statistic title="下载任务" value={downloadTasks.length} /></Card>}
+        {canViewTasks && <Card><Statistic title="上传任务" value={uploadTotal} /></Card>}
+        {canViewTasks && <Card><Statistic title="下载任务" value={downloadTotal} /></Card>}
       </Space>
       <Card title="管理概览">
         <Space wrap>
@@ -465,22 +527,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
   const renderLogs = () => canViewLogs ? (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
       <Card title="审计日志" extra={canExportLogs ? <Button icon={<DownloadOutlined />} onClick={() => exportFile('audit')}>导出 CSV</Button> : null}>
-        <Tabs items={auditLogTabs} />
+        <Tabs activeKey={activeAuditTab} items={auditLogTabs} onChange={handleAuditTabChange} />
       </Card>
       <Card title="RAG 日志" extra={canExportLogs ? <Button icon={<DownloadOutlined />} onClick={() => exportFile('rag')}>导出 CSV</Button> : null}>
           <Space wrap style={{ marginBottom: 16 }}>
-            <Input.Search allowClear placeholder="搜索操作、用户、图片或错误" style={{ width: 280 }} value={ragKeyword} onChange={e => setRagKeyword(e.target.value)} />
+            <Input.Search allowClear placeholder="搜索操作、用户、图片或错误" style={{ width: 280 }} value={ragKeyword} onChange={e => setRagKeyword(e.target.value)} onSearch={() => { setRagPage(1); loadRagLogs(); }} />
             <Select
               allowClear
               placeholder="按操作类型筛选"
               style={{ width: 220 }}
               value={ragOperation}
-              onChange={setRagOperation}
+              onChange={(value) => { setRagOperation(value); setRagPage(1); }}
               options={ragOperations.map(operation => ({ label: operation, value: operation }))}
             />
-            <Button onClick={() => { setRagKeyword(''); setRagOperation(undefined); }}>清空筛选</Button>
+            <Button onClick={() => { setRagKeyword(''); setRagOperation(undefined); setRagPage(1); }}>清空筛选</Button>
           </Space>
-          <Table rowKey="id" loading={loading} dataSource={filteredRagLogs} columns={logColumns} pagination={tablePagination(ragPageSize, setRagPageSize)} scroll={{ x: 1000 }} />
+          <Table rowKey="id" loading={loading} dataSource={ragLogs} columns={logColumns} pagination={tablePagination(ragPage, ragPageSize, ragTotal, setRagPage, setRagPageSize)} scroll={{ x: 1000 }} />
       </Card>
     </Space>
   ) : <Card>当前账号没有日志查看权限。</Card>;

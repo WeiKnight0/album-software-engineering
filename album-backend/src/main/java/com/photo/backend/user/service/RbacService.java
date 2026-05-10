@@ -2,12 +2,10 @@ package com.photo.backend.user.service;
 
 import com.photo.backend.common.entity.Permission;
 import com.photo.backend.common.entity.Role;
-import com.photo.backend.common.entity.RolePermission;
 import com.photo.backend.common.entity.User;
 import com.photo.backend.common.entity.UserPermission;
 import com.photo.backend.common.entity.UserRole;
 import com.photo.backend.common.repository.PermissionRepository;
-import com.photo.backend.common.repository.RolePermissionRepository;
 import com.photo.backend.common.repository.RoleRepository;
 import com.photo.backend.common.repository.UserRoleRepository;
 import com.photo.backend.common.repository.UserPermissionRepository;
@@ -33,8 +31,6 @@ public class RbacService {
     @Autowired
     private UserRoleRepository userRoleRepository;
     @Autowired
-    private RolePermissionRepository rolePermissionRepository;
-    @Autowired
     private UserPermissionRepository userPermissionRepository;
 
     public List<String> getRoleCodes(Integer userId) {
@@ -58,16 +54,6 @@ public class RbacService {
         Set<String> permissions = new HashSet<>();
         for (UserPermission userPermission : userPermissionRepository.findByUserId(userId)) {
             permissionRepository.findById(userPermission.getPermissionId())
-                    .map(Permission::getCode)
-                    .ifPresent(permissions::add);
-        }
-        return permissions.stream().sorted().toList();
-    }
-
-    public List<String> getPermissionCodesByRole(Integer roleId) {
-        List<String> permissions = new ArrayList<>();
-        for (RolePermission rolePermission : rolePermissionRepository.findByRoleId(roleId)) {
-            permissionRepository.findById(rolePermission.getPermissionId())
                     .map(Permission::getCode)
                     .ifPresent(permissions::add);
         }
@@ -132,11 +118,6 @@ public class RbacService {
         }
     }
 
-    @Transactional
-    public void replaceUserRoles(Integer userId, List<String> roleCodes) {
-        throw new RuntimeException("账号角色创建后不可修改");
-    }
-
     public List<String> getUserPermissionCodes(Integer userId) {
         return getPermissionCodes(userId);
     }
@@ -159,19 +140,6 @@ public class RbacService {
                 userPermission.setPermissionId(permission.getId());
                 userPermissionRepository.save(userPermission);
             }
-        }
-    }
-
-    @Transactional
-    public void replaceRolePermissions(Integer roleId, List<String> permissionCodes) {
-        rolePermissionRepository.deleteByRoleId(roleId);
-        for (String permissionCode : permissionCodes) {
-            Permission permission = permissionRepository.findByCode(permissionCode)
-                    .orElseThrow(() -> new RuntimeException("Permission not found: " + permissionCode));
-            RolePermission rolePermission = new RolePermission();
-            rolePermission.setRoleId(roleId);
-            rolePermission.setPermissionId(permission.getId());
-            rolePermissionRepository.save(rolePermission);
         }
     }
 

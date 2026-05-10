@@ -17,6 +17,21 @@ const tokenQuery = () => {
   return token ? `token=${encodeURIComponent(token)}` : ''
 }
 
+export type PageParams = {
+  page?: number
+  size?: number
+  keyword?: string
+  category?: string
+  level?: string
+  action?: string
+  operationType?: string
+  status?: number
+}
+
+const cleanParams = (params: PageParams = {}) => Object.fromEntries(
+  Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== '')
+)
+
 api.interceptors.request.use(
   config => {
     const token = localStorage.getItem('token')
@@ -81,16 +96,13 @@ export const adminAPI = {
   updateStatus: (userId: number, status: number) => api.patch(`/admin/users/${userId}/status`, { status }),
   updateMembership: (userId: number, isMember: boolean) => api.patch(`/admin/users/${userId}/membership`, { isMember }),
   updateStorageLimit: (userId: number, storageLimit: number) => api.patch(`/admin/users/${userId}/storage-limit`, { storageLimit }),
-  updateRoles: (userId: number, roles: string[]) => api.put(`/admin/users/${userId}/roles`, { roles }),
-  getRoles: () => api.get('/admin/roles'),
   getPermissions: () => api.get('/admin/permissions'),
   getUserPermissions: (userId: number) => api.get(`/admin/users/${userId}/permissions`),
   updateUserPermissions: (userId: number, permissions: string[]) => api.put(`/admin/users/${userId}/permissions`, { permissions }),
-  updateRolePermissions: (roleId: number, permissions: string[]) => api.put(`/admin/roles/${roleId}/permissions`, { permissions }),
-  getRagLogs: () => api.get('/admin/logs/rag'),
-  getAuditLogs: () => api.get('/admin/logs/audit'),
-  getUploadTasks: () => api.get('/admin/tasks/uploads'),
-  getDownloadTasks: () => api.get('/admin/tasks/downloads'),
+  getRagLogs: (params?: PageParams) => api.get('/admin/logs/rag', { params: cleanParams(params) }),
+  getAuditLogs: (params?: PageParams) => api.get('/admin/logs/audit', { params: cleanParams(params) }),
+  getUploadTasks: (params?: PageParams) => api.get('/admin/tasks/uploads', { params: cleanParams(params) }),
+  getDownloadTasks: (params?: PageParams) => api.get('/admin/tasks/downloads', { params: cleanParams(params) }),
   exportRagLogs: () => api.get('/admin/logs/rag/export', { responseType: 'blob' }),
   exportAuditLogs: () => api.get('/admin/logs/audit/export', { responseType: 'blob' }),
   exportUploadTasks: () => api.get('/admin/tasks/uploads/export', { responseType: 'blob' }),
@@ -321,9 +333,12 @@ export const downloadTaskAPI = {
 
 // ==================== AI相关API ====================
 export const aiAPI = {
-  chat: (message: string, _userId: number, history: { role: 'user' | 'assistant'; content: string }[] = []) => {
-    return api.post('/rag/chat', { message, history })
-  }
+  getSessions: () => api.get('/ai/sessions'),
+  createSession: () => api.post('/ai/sessions'),
+  updateSession: (sessionId: number, title: string) => api.patch(`/ai/sessions/${sessionId}`, { title }),
+  deleteSession: (sessionId: number) => api.delete(`/ai/sessions/${sessionId}`),
+  getMessages: (sessionId: number) => api.get(`/ai/sessions/${sessionId}/messages`),
+  chat: (sessionId: number, message: string) => api.post(`/ai/sessions/${sessionId}/chat`, { message })
 }
 
 // ==================== 智能搜索API ====================

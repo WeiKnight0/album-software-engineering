@@ -14,10 +14,15 @@ import com.photo.backend.common.repository.PermissionRepository;
 import com.photo.backend.common.repository.UploadTaskRepository;
 import com.photo.backend.rag.entity.RagPerformanceLog;
 import com.photo.backend.rag.repository.RagPerformanceLogRepository;
+import com.photo.backend.user.service.CurrentUserService;
 import com.photo.backend.user.service.RbacService;
 import com.photo.backend.user.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -48,11 +53,13 @@ public class AdminController {
     private AdminAuditLogRepository adminAuditLogRepository;
     @Autowired
     private AdminAuditLogService adminAuditLogService;
+    @Autowired
+    private CurrentUserService currentUserService;
 
     @GetMapping("/users")
-    public ResponseEntity<ApiResponse<List<AdminUserDTO>>> getUsers(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<ApiResponse<List<AdminUserDTO>>> getUsers() {
         try {
-            User current = requirePermission(authHeader, "user:view");
+            User current = requirePermission("user:view");
             rbacService.requireAdmin(current);
             List<AdminUserDTO> users = userService.getAllUsers().stream()
                     .map(user -> AdminUserDTO.from(user, rbacService.getRoleCodes(user.getId())))
@@ -65,10 +72,9 @@ public class AdminController {
 
     @PostMapping("/users")
     public ResponseEntity<ApiResponse<AdminUserDTO>> createUser(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody Map<String, Object> payload) {
         try {
-            User current = requirePermission(authHeader, "user:create");
+            User current = requirePermission("user:create");
             String role = stringValue(payload.get("role"), RbacService.ROLE_USER);
             String password = stringValue(payload.get("password"), null);
             String confirmPassword = stringValue(payload.get("confirmPassword"), null);
@@ -97,11 +103,10 @@ public class AdminController {
 
     @PatchMapping("/users/{id}/status")
     public ResponseEntity<ApiResponse<AdminUserDTO>> updateStatus(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable Integer id,
             @RequestBody Map<String, Integer> payload) {
         try {
-            User current = requirePermission(authHeader, "user:update");
+            User current = requirePermission("user:update");
             Integer status = payload.get("status");
             User user = userService.updateUserStatus(id, status);
             adminAuditLogService.record(current, "INFO", "USER", "USER_STATUS_UPDATE", "USER", id, "status=" + status, true);
@@ -113,11 +118,10 @@ public class AdminController {
 
     @PatchMapping("/users/{id}/membership")
     public ResponseEntity<ApiResponse<AdminUserDTO>> updateMembership(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable Integer id,
             @RequestBody Map<String, Object> payload) {
         try {
-            User current = requirePermission(authHeader, "user:update");
+            User current = requirePermission("user:update");
             boolean isMember = Boolean.TRUE.equals(payload.get("isMember"));
             LocalDateTime expireAt = isMember ? LocalDateTime.now().plusYears(1) : null;
             User user = userService.updateMembership(id, isMember, expireAt);
@@ -130,11 +134,10 @@ public class AdminController {
 
     @PatchMapping("/users/{id}/storage-limit")
     public ResponseEntity<ApiResponse<AdminUserDTO>> updateStorageLimit(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable Integer id,
             @RequestBody Map<String, Long> payload) {
         try {
-            User current = requirePermission(authHeader, "user:update");
+            User current = requirePermission("user:update");
             Long storageLimit = payload.get("storageLimit");
             User user = userService.updateStorageLimit(id, storageLimit);
             adminAuditLogService.record(current, "INFO", "USER", "USER_STORAGE_LIMIT_UPDATE", "USER", id, "storageLimit=" + storageLimit, true);
@@ -144,23 +147,10 @@ public class AdminController {
         }
     }
 
-    @PutMapping("/users/{id}/roles")
-    public ResponseEntity<ApiResponse<AdminUserDTO>> updateRoles(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @PathVariable Integer id,
-            @RequestBody Map<String, List<String>> payload) {
-        try {
-            requirePermission(authHeader, "role:assign");
-            return ResponseEntity.badRequest().body(ApiResponse.error("账号角色创建后不可修改", "ROLE_CHANGE_NOT_ALLOWED"));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("更新角色失败: " + e.getMessage(), "ADMIN_UPDATE_ROLES_FAILED"));
-        }
-    }
-
     @GetMapping("/permissions")
-    public ResponseEntity<ApiResponse<List<Permission>>> getPermissions(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<ApiResponse<List<Permission>>> getPermissions() {
         try {
-            requirePermission(authHeader, "role:view");
+            requirePermission("role:view");
             return ResponseEntity.ok(ApiResponse.success(permissionRepository.findAll()));
         } catch (Exception e) {
             return forbidden(e);
@@ -169,10 +159,9 @@ public class AdminController {
 
     @GetMapping("/users/{id}/permissions")
     public ResponseEntity<ApiResponse<List<String>>> getUserPermissions(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable Integer id) {
         try {
-            requirePermission(authHeader, "role:view");
+            requirePermission("role:view");
             User user = userService.getUserById(id);
             if (!rbacService.hasRole(user.getId(), RbacService.ROLE_ADMIN) || Boolean.TRUE.equals(user.getIsSuperAdmin())) {
                 return ResponseEntity.ok(ApiResponse.success(List.of()));
@@ -185,11 +174,10 @@ public class AdminController {
 
     @PutMapping("/users/{id}/permissions")
     public ResponseEntity<ApiResponse<List<String>>> updateUserPermissions(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable Integer id,
             @RequestBody Map<String, List<String>> payload) {
         try {
-            User current = requirePermission(authHeader, "role:assign");
+            User current = requirePermission("role:assign");
             rbacService.requireSuperAdmin(current);
             User target = userService.getUserById(id);
             if (Boolean.TRUE.equals(target.getIsSuperAdmin())) {
@@ -211,48 +199,66 @@ public class AdminController {
     }
 
     @GetMapping("/logs/rag")
-    public ResponseEntity<ApiResponse<List<RagPerformanceLog>>> getRagLogs(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<ApiResponse<Page<RagPerformanceLog>>> getRagLogs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String operationType,
+            @RequestParam(required = false) String keyword) {
         try {
-            requirePermission(authHeader, "log:view");
-            return ResponseEntity.ok(ApiResponse.success(ragPerformanceLogRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))));
+            requirePermission("log:view");
+            return ResponseEntity.ok(ApiResponse.success(ragPerformanceLogRepository.findAll(ragSpec(operationType, keyword), pageable(page, size))));
         } catch (Exception e) {
             return forbidden(e);
         }
     }
 
     @GetMapping("/logs/audit")
-    public ResponseEntity<ApiResponse<List<AdminAuditLog>>> getAuditLogs(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<ApiResponse<Page<AdminAuditLog>>> getAuditLogs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) String keyword) {
         try {
-            requirePermission(authHeader, "log:view");
-            return ResponseEntity.ok(ApiResponse.success(adminAuditLogRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))));
+            requirePermission("log:view");
+            return ResponseEntity.ok(ApiResponse.success(adminAuditLogRepository.findAll(auditSpec(category, level, action, keyword), pageable(page, size))));
         } catch (Exception e) {
             return forbidden(e);
         }
     }
 
     @GetMapping("/tasks/uploads")
-    public ResponseEntity<ApiResponse<List<UploadTask>>> getUploadTasks(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<ApiResponse<Page<UploadTask>>> getUploadTasks(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) String keyword) {
         try {
-            requirePermission(authHeader, "task:view");
-            return ResponseEntity.ok(ApiResponse.success(uploadTaskRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))));
+            requirePermission("task:view");
+            return ResponseEntity.ok(ApiResponse.success(uploadTaskRepository.findAll(uploadTaskSpec(status, keyword), pageable(page, size))));
         } catch (Exception e) {
             return forbidden(e);
         }
     }
 
     @GetMapping("/tasks/downloads")
-    public ResponseEntity<ApiResponse<List<DownloadTask>>> getDownloadTasks(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<ApiResponse<Page<DownloadTask>>> getDownloadTasks(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) String keyword) {
         try {
-            requirePermission(authHeader, "task:view");
-            return ResponseEntity.ok(ApiResponse.success(downloadTaskRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))));
+            requirePermission("task:view");
+            return ResponseEntity.ok(ApiResponse.success(downloadTaskRepository.findAll(downloadTaskSpec(status, keyword), pageable(page, size))));
         } catch (Exception e) {
             return forbidden(e);
         }
     }
 
     @GetMapping("/logs/rag/export")
-    public ResponseEntity<byte[]> exportRagLogs(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        User current = requirePermission(authHeader, "log:export");
+    public ResponseEntity<byte[]> exportRagLogs() {
+        User current = requirePermission("log:export");
         StringBuilder csv = new StringBuilder("id,operationType,userId,imageId,totalTimeMs,resultCount,errorMessage,createdAt\n");
         for (RagPerformanceLog log : ragPerformanceLogRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))) {
             csv.append(log.getId()).append(',')
@@ -269,8 +275,8 @@ public class AdminController {
     }
 
     @GetMapping("/logs/audit/export")
-    public ResponseEntity<byte[]> exportAuditLogs(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        User current = requirePermission(authHeader, "log:export");
+    public ResponseEntity<byte[]> exportAuditLogs() {
+        User current = requirePermission("log:export");
         StringBuilder csv = new StringBuilder("id,level,category,success,operatorId,operatorUsername,action,targetType,targetId,detail,ipAddress,requestPath,createdAt\n");
         for (AdminAuditLog log : adminAuditLogRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))) {
             csv.append(log.getId()).append(',')
@@ -292,8 +298,8 @@ public class AdminController {
     }
 
     @GetMapping("/tasks/uploads/export")
-    public ResponseEntity<byte[]> exportUploadTasks(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        User current = requirePermission(authHeader, "task:export");
+    public ResponseEntity<byte[]> exportUploadTasks() {
+        User current = requirePermission("task:export");
         StringBuilder csv = new StringBuilder("id,userId,taskName,totalFiles,totalSize,uploadedFiles,uploadedSize,status,createdAt,completedAt\n");
         for (UploadTask task : uploadTaskRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))) {
             csv.append(escape(task.getId())).append(',')
@@ -312,8 +318,8 @@ public class AdminController {
     }
 
     @GetMapping("/tasks/downloads/export")
-    public ResponseEntity<byte[]> exportDownloadTasks(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        User current = requirePermission(authHeader, "task:export");
+    public ResponseEntity<byte[]> exportDownloadTasks() {
+        User current = requirePermission("task:export");
         StringBuilder csv = new StringBuilder("id,userId,taskName,totalFiles,totalSize,downloadedFiles,downloadedSize,status,createdAt,completedAt\n");
         for (DownloadTask task : downloadTaskRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))) {
             csv.append(escape(task.getId())).append(',')
@@ -331,11 +337,87 @@ public class AdminController {
         return csvResponse(csv.toString(), "download-tasks.csv");
     }
 
-    private User requirePermission(String authHeader, String permissionCode) {
-        User current = userService.getUserFromAuthHeader(authHeader);
+    private User requirePermission(String permissionCode) {
+        User current = currentUserService.getCurrentUser();
         rbacService.requireAdmin(current);
         rbacService.requirePermission(current, permissionCode);
         return current;
+    }
+
+    private Pageable pageable(int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        return PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+    }
+
+    private Specification<AdminAuditLog> auditSpec(String category, String level, String action, String keyword) {
+        return (root, query, builder) -> {
+            var predicate = builder.conjunction();
+            if (hasText(category)) predicate = builder.and(predicate, builder.equal(root.get("category"), category));
+            if (hasText(level)) predicate = builder.and(predicate, builder.equal(root.get("level"), level));
+            if (hasText(action)) predicate = builder.and(predicate, builder.equal(root.get("action"), action));
+            if (hasText(keyword)) {
+                String like = "%" + keyword.trim().toLowerCase() + "%";
+                predicate = builder.and(predicate, builder.or(
+                        builder.like(builder.lower(root.get("operatorUsername")), like),
+                        builder.like(builder.lower(root.get("action")), like),
+                        builder.like(builder.lower(builder.coalesce(root.get("targetType"), "")), like),
+                        builder.like(builder.lower(builder.coalesce(root.get("targetId"), "")), like),
+                        builder.like(builder.lower(builder.coalesce(root.get("detail"), "")), like)
+                ));
+            }
+            return predicate;
+        };
+    }
+
+    private Specification<RagPerformanceLog> ragSpec(String operationType, String keyword) {
+        return (root, query, builder) -> {
+            var predicate = builder.conjunction();
+            if (hasText(operationType)) predicate = builder.and(predicate, builder.equal(root.get("operationType"), operationType));
+            if (hasText(keyword)) {
+                String like = "%" + keyword.trim().toLowerCase() + "%";
+                predicate = builder.and(predicate, builder.or(
+                        builder.like(builder.lower(root.get("operationType")), like),
+                        builder.like(builder.lower(builder.coalesce(root.get("imageId"), "")), like),
+                        builder.like(builder.lower(builder.coalesce(root.get("errorMessage"), "")), like)
+                ));
+            }
+            return predicate;
+        };
+    }
+
+    private Specification<UploadTask> uploadTaskSpec(Integer status, String keyword) {
+        return (root, query, builder) -> {
+            var predicate = builder.conjunction();
+            if (status != null) predicate = builder.and(predicate, builder.equal(root.get("status"), status));
+            if (hasText(keyword)) {
+                String like = "%" + keyword.trim().toLowerCase() + "%";
+                predicate = builder.and(predicate, builder.or(
+                        builder.like(builder.lower(root.get("id")), like),
+                        builder.like(builder.lower(root.get("taskName")), like)
+                ));
+            }
+            return predicate;
+        };
+    }
+
+    private Specification<DownloadTask> downloadTaskSpec(Integer status, String keyword) {
+        return (root, query, builder) -> {
+            var predicate = builder.conjunction();
+            if (status != null) predicate = builder.and(predicate, builder.equal(root.get("status"), status));
+            if (hasText(keyword)) {
+                String like = "%" + keyword.trim().toLowerCase() + "%";
+                predicate = builder.and(predicate, builder.or(
+                        builder.like(builder.lower(root.get("id")), like),
+                        builder.like(builder.lower(root.get("taskName")), like)
+                ));
+            }
+            return predicate;
+        };
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     private String stringValue(Object value, String defaultValue) {

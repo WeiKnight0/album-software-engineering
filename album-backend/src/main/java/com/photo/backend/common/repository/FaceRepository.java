@@ -11,4 +11,5 @@ public interface FaceRepository extends JpaRepository<Face, Integer> {
     Optional<Face> findByIdAndUserId(Integer id, Integer userId);
     boolean existsByIdAndUserId(Integer id, Integer userId);
     List<Face> findByUserIdAndFaceNameOrderByIdAsc(Integer userId, String faceName);
+    List<Face> findByUserIdAndFaceNameContainingIgnoreCaseOrderByIdAsc(Integer userId, String faceName);
 }

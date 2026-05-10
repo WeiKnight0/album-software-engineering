@@ -2,12 +2,10 @@ package com.photo.backend.bootstrap;
 
 import com.photo.backend.common.entity.Permission;
 import com.photo.backend.common.entity.Role;
-import com.photo.backend.common.entity.RolePermission;
 import com.photo.backend.common.entity.User;
 import com.photo.backend.common.entity.UserRole;
 import com.photo.backend.common.entity.UserPermission;
 import com.photo.backend.common.repository.PermissionRepository;
-import com.photo.backend.common.repository.RolePermissionRepository;
 import com.photo.backend.common.repository.RoleRepository;
 import com.photo.backend.common.repository.UserRepository;
 import com.photo.backend.common.repository.UserRoleRepository;
@@ -46,8 +44,6 @@ public class BootstrapInitializer implements ApplicationRunner {
     @Autowired
     private UserRoleRepository userRoleRepository;
     @Autowired
-    private RolePermissionRepository rolePermissionRepository;
-    @Autowired
     private UserPermissionRepository userPermissionRepository;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -78,15 +74,6 @@ public class BootstrapInitializer implements ApplicationRunner {
                 ensurePermission("task:view", "查看任务", "task"),
                 ensurePermission("task:export", "导出任务", "task")
         );
-
-        for (Permission permission : permissions) {
-            ensureRolePermission(superAdminRole, permission);
-        }
-        for (Permission permission : permissions) {
-            if (!permission.getCode().equals("role:assign")) {
-                ensureRolePermission(adminRole, permission);
-            }
-        }
 
         User superAdmin = ensureUser(adminUsername, adminPassword, adminEmail, adminNickname, true);
         ensureUserRole(superAdmin, superAdminRole);
@@ -130,15 +117,6 @@ public class BootstrapInitializer implements ApplicationRunner {
             permission.setModule(module);
             return permissionRepository.save(permission);
         });
-    }
-
-    private void ensureRolePermission(Role role, Permission permission) {
-        if (!rolePermissionRepository.existsByRoleIdAndPermissionId(role.getId(), permission.getId())) {
-            RolePermission rolePermission = new RolePermission();
-            rolePermission.setRoleId(role.getId());
-            rolePermission.setPermissionId(permission.getId());
-            rolePermissionRepository.save(rolePermission);
-        }
     }
 
     private User ensureUser(String username, String password, String email, String nickname, boolean isSuperAdmin) {

@@ -4,6 +4,7 @@ import com.photo.backend.common.entity.Image;
 import com.photo.backend.common.entity.ImageAnalysis;
 import com.photo.backend.common.repository.ImageAnalysisRepository;
 import com.photo.backend.asset.service.ImageService;
+import com.photo.backend.face.service.FaceService;
 import com.photo.backend.rag.dto.ChatRequest;
 import com.photo.backend.rag.dto.ChatResponse;
 import com.photo.backend.rag.entity.RagPerformanceLog;
@@ -34,6 +35,10 @@ public class RagService {
     @Autowired
     @Lazy
     private ImageService imageService;
+
+    @Autowired
+    @Lazy
+    private FaceService faceService;
 
     @Autowired
     private ImageAnalysisRepository imageAnalysisRepository;
@@ -112,17 +117,21 @@ public class RagService {
 
         try {
             if (topK == null) topK = defaultTopK;
+            List<Image> faceNameResults = faceService.searchImagesByMentionedFaceNames(userId, query);
 
             // Step 1: Vector search
             long t1 = System.currentTimeMillis();
             List<Map<String, Object>> hits = ragVectorClient.search(userId, query.trim(), topK);
             vectorTime = System.currentTimeMillis() - t1;
 
+            List<Image> results = new ArrayList<>();
+            mergeImages(results, faceNameResults);
+
             if (hits == null || hits.isEmpty()) {
                 long totalTime = System.currentTimeMillis() - totalT0;
                 savePerfLog("SEARCH", (long) userId, null, vectorTime, null, null,
-                        totalTime, 0, null);
-                return Collections.emptyList();
+                        totalTime, results.size(), null);
+                return results;
             }
 
             // Filter by similarity score threshold
@@ -143,8 +152,8 @@ public class RagService {
             if (filteredHits.isEmpty()) {
                 long totalTime = System.currentTimeMillis() - totalT0;
                 savePerfLog("SEARCH", (long) userId, null, vectorTime, null, null,
-                        totalTime, 0, null);
-                return Collections.emptyList();
+                        totalTime, results.size(), null);
+                return results;
             }
 
             // Step 2: Hydrate from SQLite
@@ -157,7 +166,6 @@ public class RagService {
                     .filter(id -> id != null && !id.isBlank())
                     .collect(Collectors.toList());
 
-            List<Image> results = new ArrayList<>();
             for (String imageId : imageIds) {
                 try {
                     Image image = imageService.getImageById(imageId, userId);
@@ -224,6 +232,9 @@ public class RagService {
             logger.info("[RAG] chat retrieved: rawHits={}, filteredHits={}, threshold={}, maxRefs={}",
                     hits != null ? hits.size() : 0, filteredHits.size(), searchScoreThreshold, chatMaxReferences);
 
+            List<Image> faceNameImages = faceService.searchImagesByMentionedFaceNames(userId, message);
+            mergeFaceNameHits(userId, filteredHits, faceNameImages);
+
             // Step 2: Generate answer with LLM
             long t2 = System.currentTimeMillis();
             String answer = ragLLMClient.generateAnswer(message, filteredHits, sanitizeHistory(history));
@@ -237,7 +248,11 @@ public class RagService {
                     try {
                         Image img = imageService.getImageById(imageId, userId);
                         if (img != null && !Boolean.TRUE.equals(img.getIsInRecycleBin())) {
+                            List<String> faceNames = faceService.getFaceNamesByImageId(userId, imageId);
                             String desc = img.getOriginalFilename() != null ? img.getOriginalFilename() : "相关照片";
+                            if (!faceNames.isEmpty()) {
+                                desc += "（包含人物：" + String.join("、", faceNames) + "）";
+                            }
                             references.add(new ChatResponse.ChatReference(imageId, desc, ""));
                         }
                     } catch (Exception ex) {
@@ -278,6 +293,38 @@ public class RagService {
                     return next;
                 })
                 .collect(Collectors.toList());
+    }
+
+    private void mergeImages(List<Image> target, List<Image> additions) {
+        if (additions == null || additions.isEmpty()) return;
+        var existingIds = target.stream().map(Image::getId).collect(Collectors.toSet());
+        for (Image image : additions) {
+            if (image != null && !existingIds.contains(image.getId())) {
+                target.add(image);
+                existingIds.add(image.getId());
+            }
+        }
+    }
+
+    private void mergeFaceNameHits(Integer userId, List<Map<String, Object>> hits, List<Image> faceNameImages) {
+        if (faceNameImages == null || faceNameImages.isEmpty()) return;
+        var existingIds = hits.stream()
+                .map(hit -> String.valueOf(hit.getOrDefault("image_id", "")))
+                .collect(Collectors.toSet());
+        for (Image image : faceNameImages) {
+            if (image == null || existingIds.contains(image.getId())) continue;
+            List<String> faceNames = faceService.getFaceNamesByImageId(userId, image.getId());
+            String description = image.getOriginalFilename() != null ? image.getOriginalFilename() : "相关照片";
+            if (!faceNames.isEmpty()) {
+                description += "。包含人物：" + String.join("、", faceNames);
+            }
+            hits.add(Map.of(
+                    "image_id", image.getId(),
+                    "score", 1.0,
+                    "description", description
+            ));
+            existingIds.add(image.getId());
+        }
     }
 
     public boolean deleteVector(Integer userId, String imageId) {
