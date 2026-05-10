@@ -27,10 +27,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import javax.imageio.ImageIO;
 
 @Service
 public class ImageService {
@@ -81,6 +83,9 @@ public class ImageService {
         logger.info("Upload attempt - userId: {}, folderId: {}, fileName: {}, fileSize: {}, contentType: {}",
             userId, folderId, file.getOriginalFilename(), file.getSize(), file.getContentType());
 
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("文件不能为空");
+        }
         if (!userService.checkStorageLimit(userId, file.getSize())) {
             logger.warn("Storage limit exceeded for user: {}", userId);
             throw new RuntimeException("Storage limit exceeded");
@@ -107,7 +112,7 @@ public class ImageService {
         String originalFilename = file.getOriginalFilename();
         logger.info("Original filename: {}, uuid: {}", originalFilename, uuid);
 
-        String extension = originalFilename != null ? originalFilename.substring(originalFilename.lastIndexOf('.')) : ".jpg";
+        String extension = detectImageExtension(file);
         String storedFilename = uuid + extension;
         logger.info("Stored filename will be: {}", storedFilename);
 
@@ -116,8 +121,10 @@ public class ImageService {
 
         try {
             file.transferTo(dest);
+            validateStoredImage(dest.toPath());
             logger.info("File saved successfully, exists: {}", dest.exists());
         } catch (Exception e) {
+            Files.deleteIfExists(dest.toPath());
             logger.error("Error saving file: {}", e.getMessage(), e);
             throw e;
         }
@@ -144,7 +151,7 @@ public class ImageService {
         image.setStoredFilename(storedFilename);
         image.setThumbnailFilename(thumbnailFilename);
         image.setFileSize((int) file.getSize());
-        image.setMimeType(file.getContentType());
+        image.setMimeType(mimeTypeForExtension(extension));
         image.setUploadTime(LocalDateTime.now());
         image.setIsInRecycleBin(false);
 
@@ -217,6 +224,32 @@ public class ImageService {
 
         logger.info("=== UPLOAD COMPLETE ===");
         return savedImage;
+    }
+
+    private String detectImageExtension(MultipartFile file) throws IOException {
+        String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase();
+        String originalFilename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
+        if (!contentType.startsWith("image/")) {
+            throw new RuntimeException("仅支持图片文件");
+        }
+        if (contentType.contains("png") || originalFilename.endsWith(".png")) return ".png";
+        if (contentType.contains("webp") || originalFilename.endsWith(".webp")) return ".webp";
+        if (contentType.contains("jpeg") || contentType.contains("jpg") || originalFilename.endsWith(".jpg") || originalFilename.endsWith(".jpeg")) return ".jpg";
+        throw new RuntimeException("仅支持 JPG、PNG、WEBP 图片");
+    }
+
+    private void validateStoredImage(Path path) throws IOException {
+        if (ImageIO.read(path.toFile()) == null) {
+            throw new RuntimeException("无效的图片文件");
+        }
+    }
+
+    private String mimeTypeForExtension(String extension) {
+        return switch (extension) {
+            case ".png" -> "image/png";
+            case ".webp" -> "image/webp";
+            default -> "image/jpeg";
+        };
     }
 
     public void deleteImage(String imageId, Integer userId) {

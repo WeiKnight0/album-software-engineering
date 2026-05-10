@@ -32,13 +32,15 @@ public class FaceModelClient {
     private final RestTemplate restTemplate;
     private final String inferUrl;
     private final boolean enabled;
+    private final String serviceToken;
 
     public FaceModelClient(
         RestTemplateBuilder restTemplateBuilder,
         @Value("${face.model.base-url:http://127.0.0.1:8001}") String baseUrl,
         @Value("${face.model.infer-path:/api/v1/infer}") String inferPath,
         @Value("${face.model.timeout-ms:120000}") int timeoutMs,
-        @Value("${face.model.enabled:true}") boolean enabled
+        @Value("${face.model.enabled:true}") boolean enabled,
+        @Value("${face.model.service-token:${internal.service-token:}}") String serviceToken
     ) {
         this.restTemplate = restTemplateBuilder
             .setConnectTimeout(Duration.ofMillis(timeoutMs))
@@ -46,6 +48,7 @@ public class FaceModelClient {
             .build();
         this.inferUrl = normalizeUrl(baseUrl, inferPath);
         this.enabled = enabled;
+        this.serviceToken = serviceToken;
     }
 
     /**
@@ -74,6 +77,9 @@ public class FaceModelClient {
             // 组装 multipart 请求头，模拟普通文件上传。
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            if (serviceToken != null && !serviceToken.isBlank()) {
+                headers.setBearerAuth(serviceToken);
+            }
 
             // 请求体里放图片文件本身。
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
@@ -116,4 +122,3 @@ public class FaceModelClient {
         return normalizedBase + normalizedPath;
     }
 }
-

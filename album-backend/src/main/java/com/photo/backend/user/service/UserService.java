@@ -6,6 +6,7 @@ import com.photo.backend.user.dto.CurrentUserDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import jakarta.annotation.PostConstruct;
 
 @Service
 public class UserService {
@@ -31,12 +33,30 @@ public class UserService {
     @Autowired
     private RbacService rbacService;
 
+    @Autowired
+    private Environment environment;
+
     @Value("${avatar.base-path:avatars}")
     private String avatarBasePath;
 
+    @Value("${jwt.secret:}")
+    private String jwtSecret;
+
+    @Value("${jwt.expiration-ms:86400000}")
+    private long jwtExpirationMs;
+
     private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-    private final String JWT_SECRET = "your-very-secret-key-for-jwt-token-generation-must-be-long-enough";
-    private final long JWT_EXPIRATION = 86400000;
+
+    @PostConstruct
+    public void validateJwtConfig() {
+        if (jwtSecret == null || jwtSecret.length() < 32) {
+            if (java.util.Arrays.asList(environment.getActiveProfiles()).contains("test")) {
+                jwtSecret = "test-only-jwt-secret-with-at-least-32-chars";
+                return;
+            }
+            throw new IllegalStateException("JWT_SECRET must be configured and at least 32 characters long");
+        }
+    }
 
     public User register(User user) {
         logger.info("Registering user: {}", user.getUsername());
@@ -279,7 +299,7 @@ public class UserService {
     public Integer getUserIdFromToken(String token) {
         try {
             var parsedToken = Jwts.parser()
-                    .verifyWith(Keys.hmacShaKeyFor(JWT_SECRET.getBytes()))
+                    .verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
                     .build()
                     .parseSignedClaims(token);
             String subject = parsedToken.getPayload().getSubject();
@@ -291,13 +311,13 @@ public class UserService {
 
     private String generateToken(User user) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + JWT_EXPIRATION);
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
                 .subject(user.getId().toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(Keys.hmacShaKeyFor(JWT_SECRET.getBytes()))
+                .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
                 .compact();
     }
 }

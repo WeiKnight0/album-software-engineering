@@ -224,16 +224,25 @@ public class ImageController {
                 return ResponseEntity.notFound().build();
             }
 
-            String encodedFilename = java.net.URLEncoder.encode(image.getOriginalFilename(), "UTF-8").replace("+", "%20");
+            String safeFilename = safeDownloadFilename(image.getOriginalFilename());
+            String encodedFilename = java.net.URLEncoder.encode(safeFilename, "UTF-8").replace("+", "%20");
 
             return ResponseEntity.ok()
                     .contentType(org.springframework.http.MediaType.parseMediaType(image.getMimeType()))
-                    .header("Content-Disposition", "attachment; filename=\"" + image.getOriginalFilename() + "\"; filename*=UTF-8''" + encodedFilename)
+                    .header("Content-Disposition", "attachment; filename=\"" + safeFilename + "\"; filename*=UTF-8''" + encodedFilename)
                     .body(new org.springframework.core.io.FileSystemResource(file));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("Download failed: " + e.getMessage(), "DOWNLOAD_FAILED"));
         }
+    }
+
+    private String safeDownloadFilename(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return "download";
+        }
+        String sanitized = filename.replaceAll("[\\r\\n\\\"]", "_").replaceAll("[/\\\\]", "_").trim();
+        return sanitized.isBlank() ? "download" : sanitized;
     }
 
     @GetMapping("/{id}/thumbnail")

@@ -11,8 +11,8 @@ services:
   backend:
     build:
       context: ./album-backend
-    ports:
-      - "8082:8082"
+    expose:
+      - "8082"
     env_file:
       - ./album-backend/.env
     environment:
@@ -59,17 +59,20 @@ services:
   face-recognition:
     build:
       context: ./face-recognition
-    ports:
-      - "8001:8001"
+    env_file:
+      - ./album-backend/.env
+    expose:
+      - "8001"
     volumes:
       - ./data/face-recognition/models:/app/models
 
   rag:
     build:
       context: ./album-rag
-    ports:
-      - "8003:8003"
+    expose:
+      - "8003"
     env_file:
+      - ./album-backend/.env
       - ./album-rag/.env
     environment:
       QDRANT_PATH: /data/qdrant

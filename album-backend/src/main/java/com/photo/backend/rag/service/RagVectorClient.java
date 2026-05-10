@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -24,12 +25,14 @@ public class RagVectorClient {
     private final RestTemplate restTemplate;
     private final String baseUrl;
     private final boolean enabled;
+    private final String serviceToken;
 
     public RagVectorClient(
             RestTemplateBuilder restTemplateBuilder,
             @Value("${rag.base-url:http://127.0.0.1:8003}") String baseUrl,
             @Value("${rag.timeout-ms:60000}") int timeoutMs,
-            @Value("${rag.enabled:true}") boolean enabled
+            @Value("${rag.enabled:true}") boolean enabled,
+            @Value("${rag.service-token:}") String serviceToken
     ) {
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofMillis(timeoutMs))
@@ -37,6 +40,7 @@ public class RagVectorClient {
                 .build();
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.enabled = enabled;
+        this.serviceToken = serviceToken;
     }
 
     public boolean index(Integer userId, String imageId, String description) {
@@ -52,8 +56,7 @@ public class RagVectorClient {
         long t0 = System.currentTimeMillis();
         try {
             String url = baseUrl + "/index";
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpHeaders headers = jsonHeaders();
 
             Map<String, Object> body = Map.of(
                     "user_id", userId,
@@ -102,8 +105,7 @@ public class RagVectorClient {
         long t0 = System.currentTimeMillis();
         try {
             String url = baseUrl + "/search";
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpHeaders headers = jsonHeaders();
 
             Map<String, Object> body = new java.util.HashMap<>();
             body.put("user_id", userId);
@@ -148,12 +150,26 @@ public class RagVectorClient {
 
         try {
             String url = baseUrl + "/index/" + userId + "/" + imageId;
-            restTemplate.delete(url);
+            restTemplate.exchange(url, HttpMethod.DELETE, new HttpEntity<>(authHeaders()), Void.class);
             logger.info("[RAG Vector] delete success: userId={}, imageId={}", userId, imageId);
             return true;
         } catch (RestClientException e) {
             logger.error("[RAG Vector] delete error: userId={}, imageId={}, msg={}", userId, imageId, e.getMessage());
             return false;
         }
+    }
+
+    private HttpHeaders jsonHeaders() {
+        HttpHeaders headers = authHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
+    }
+
+    private HttpHeaders authHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        if (serviceToken != null && !serviceToken.isBlank()) {
+            headers.setBearerAuth(serviceToken);
+        }
+        return headers;
     }
 }

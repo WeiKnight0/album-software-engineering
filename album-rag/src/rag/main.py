@@ -1,10 +1,12 @@
 """FastAPI service for RAG vector operations (embedding + storage)."""
 
+import os
 import time
 from typing import List
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from rag.config import settings
@@ -12,6 +14,15 @@ from rag.embedder import TextEmbedder
 from rag.vector_store import VectorStore
 
 app = FastAPI(title="Photo RAG Vector Service")
+security = HTTPBearer(auto_error=False)
+
+
+def require_service_token(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> None:
+    expected = os.getenv("INTERNAL_SERVICE_TOKEN", "")
+    if not expected:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="service token is not configured")
+    if credentials is None or credentials.scheme.lower() != "bearer" or credentials.credentials != expected:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid service token")
 
 # CORS
 app.add_middleware(
@@ -100,7 +111,7 @@ def health() -> HealthResponse:
     )
 
 
-@app.post("/index", response_model=IndexResponse)
+@app.post("/index", response_model=IndexResponse, dependencies=[Depends(require_service_token)])
 def index(req: IndexRequest) -> IndexResponse:
     try:
         embedder = get_embedder()
@@ -130,7 +141,7 @@ def index(req: IndexRequest) -> IndexResponse:
         raise HTTPException(status_code=500, detail=f"Index failed: {str(e)}")
 
 
-@app.post("/search", response_model=SearchResponse)
+@app.post("/search", response_model=SearchResponse, dependencies=[Depends(require_service_token)])
 def search(req: SearchRequest) -> SearchResponse:
     try:
         embedder = get_embedder()
@@ -166,7 +177,7 @@ def search(req: SearchRequest) -> SearchResponse:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 
-@app.delete("/index/{user_id}/{image_id}", response_model=DeleteResponse)
+@app.delete("/index/{user_id}/{image_id}", response_model=DeleteResponse, dependencies=[Depends(require_service_token)])
 def delete_index(user_id: int, image_id: str) -> DeleteResponse:
     try:
         store = get_vector_store()

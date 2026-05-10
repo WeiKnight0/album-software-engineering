@@ -1,16 +1,27 @@
 # ai_service.py - pure inference service (no DB access)
 import logging
+import os
 
 import cv2
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from insightface.app import FaceAnalysis
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Face Inference Service", version="2.0.0")
+security = HTTPBearer(auto_error=False)
+
+
+def require_service_token(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> None:
+    expected = os.getenv("INTERNAL_SERVICE_TOKEN", "")
+    if not expected:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="service token is not configured")
+    if credentials is None or credentials.scheme.lower() != "bearer" or credentials.credentials != expected:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid service token")
 
 # Hybrid gate: relative threshold across resolutions + tiny absolute floor.
 MIN_FACE_ABS_PX = 16
@@ -50,6 +61,7 @@ def get_face_app():
 
 @app.post("/api/v1/infer")
 async def infer_faces(
+    _: None = Depends(require_service_token),
     image: UploadFile = File(...),
     user_id: str = Form(""),
     image_id: str = Form(""),
@@ -136,4 +148,3 @@ def health() -> dict:
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)
-
