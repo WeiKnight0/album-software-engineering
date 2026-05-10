@@ -1,9 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { Avatar, Button, Card, Checkbox, Form, Input, message, Modal, Select, Space, Statistic, Switch, Table, Tabs, Tag } from 'antd';
-import { LogoutOutlined, ReloadOutlined, DownloadOutlined, UserAddOutlined, UserOutlined } from '@ant-design/icons';
+import { Avatar, Button, Card, Checkbox, Dropdown, Form, Input, message, Modal, Select, Space, Statistic, Switch, Table, Tabs, Tag } from 'antd';
+import {
+  AppstoreOutlined,
+  DashboardOutlined,
+  DownloadOutlined,
+  FileTextOutlined,
+  InfoCircleOutlined,
+  LogoutOutlined,
+  ReloadOutlined,
+  SafetyCertificateOutlined,
+  SettingOutlined,
+  TeamOutlined,
+  UserAddOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { adminAPI, userAPI } from '../services/api';
 import type { AppUser } from '../App';
 import SettingsPanel from './SettingsPanel';
+import AboutPanel from './AboutPanel';
 
 interface AdminDashboardProps {
   currentUser: AppUser;
@@ -32,6 +47,28 @@ interface AdminPermission {
   module: string;
 }
 
+type AdminView = 'home' | 'users' | 'permissions' | 'logs' | 'tasks' | 'settings' | 'about';
+
+const adminPathToView: Record<string, AdminView> = {
+  '/admin': 'home',
+  '/admin/users': 'users',
+  '/admin/permissions': 'permissions',
+  '/admin/logs': 'logs',
+  '/admin/tasks': 'tasks',
+  '/admin/settings': 'settings',
+  '/admin/about': 'about',
+};
+
+const adminViewToPath: Record<AdminView, string> = {
+  home: '/admin',
+  users: '/admin/users',
+  permissions: '/admin/permissions',
+  logs: '/admin/logs',
+  tasks: '/admin/tasks',
+  settings: '/admin/settings',
+  about: '/admin/about',
+};
+
 const formatDateTime = (value?: string | null) => {
   if (!value) return '-';
   const date = new Date(value);
@@ -48,7 +85,16 @@ const downloadBlob = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
+const AdminNavButton: React.FC<{ active: boolean; icon: React.ReactNode; label: string; onClick: () => void }> = ({ active, icon, label, onClick }) => (
+  <button className={`biophilic-sidebar-item ${active ? 'active' : ''}`} onClick={onClick}>
+    <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}>{icon}</span>
+    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+  </button>
+);
+
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, onUserUpdated }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [permissions, setPermissions] = useState<AdminPermission[]>([]);
   const [ragLogs, setRagLogs] = useState<any[]>([]);
@@ -76,6 +122,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
   const [downloadTaskStatus, setDownloadTaskStatus] = useState<number | undefined>();
   const [adminKeyword, setAdminKeyword] = useState('');
   const [form] = Form.useForm();
+  const activeView = adminPathToView[location.pathname];
 
   const isSuperAdmin = currentUser.isSuperAdmin || currentUser.roles?.includes('SUPER_ADMIN');
   const can = (permission: string) => isSuperAdmin || currentUser.permissions?.includes(permission);
@@ -335,21 +382,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
     },
   ];
 
-  const tabItems = [
-    canViewUsers ? {
-      key: 'users',
-      label: '用户管理',
-      children: <Card
-        title="用户账号与权限"
-        extra={canCreateUsers ? <Button type="primary" icon={<UserAddOutlined />} onClick={() => setCreateOpen(true)}>创建用户</Button> : null}
-      >
-        <Table rowKey="id" loading={loading} dataSource={users} columns={userColumns} scroll={{ x: 900 }} />
+  const renderHome = () => (
+    <>
+      <Space style={{ marginBottom: 20 }} size="large" wrap>
+        {canViewUsers && <Card><Statistic title="用户总数" value={users.length} /></Card>}
+        {canViewUsers && <Card><Statistic title="管理员" value={users.filter(user => user.roles?.includes('ADMIN') || user.isSuperAdmin).length} /></Card>}
+        {canViewTasks && <Card><Statistic title="上传任务" value={uploadTasks.length} /></Card>}
+        {canViewTasks && <Card><Statistic title="下载任务" value={downloadTasks.length} /></Card>}
+      </Space>
+      <Card title="管理概览">
+        <Space wrap>
+          {canViewUsers && <Button onClick={() => navigate('/admin/users')}>用户管理</Button>}
+          {canViewRoles && <Button onClick={() => navigate('/admin/permissions')}>管理员权限</Button>}
+          {canViewLogs && <Button onClick={() => navigate('/admin/logs')}>日志中心</Button>}
+          {canViewTasks && <Button onClick={() => navigate('/admin/tasks')}>任务中心</Button>}
+        </Space>
       </Card>
-    } : null,
-    canViewRoles ? {
-      key: 'roles',
-      label: '管理员权限',
-      children: <Card title="管理员权限配置" extra={(!isSuperAdmin || !canAssignRoles) && <Tag color="orange">仅超级管理员可修改</Tag>}>
+    </>
+  );
+
+  const renderUsers = () => canViewUsers ? (
+    <Card
+      title="用户账号与权限"
+      extra={canCreateUsers ? <Button type="primary" icon={<UserAddOutlined />} onClick={() => setCreateOpen(true)}>创建用户</Button> : null}
+    >
+      <Table rowKey="id" loading={loading} dataSource={users} columns={userColumns} scroll={{ x: 900 }} />
+    </Card>
+  ) : <Card>当前账号没有用户管理权限。</Card>;
+
+  const renderPermissions = () => canViewRoles ? (
+    <Card title="管理员权限配置" extra={(!isSuperAdmin || !canAssignRoles) && <Tag color="orange">仅超级管理员可修改</Tag>}>
         <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20 }}>
           <div>
             <Input.Search allowClear placeholder="搜索管理员" value={adminKeyword} onChange={e => setAdminKeyword(e.target.value)} style={{ marginBottom: 12 }} />
@@ -397,16 +459,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
             <Card size="small" style={{ minHeight: 240 }} />
           )}
         </div>
+    </Card>
+  ) : <Card>当前账号没有权限管理权限。</Card>;
+
+  const renderLogs = () => canViewLogs ? (
+    <Space direction="vertical" style={{ width: '100%' }} size="large">
+      <Card title="审计日志" extra={canExportLogs ? <Button icon={<DownloadOutlined />} onClick={() => exportFile('audit')}>导出 CSV</Button> : null}>
+        <Tabs items={auditLogTabs} />
       </Card>
-    } : null,
-    canViewLogs ? {
-      key: 'logs',
-      label: '日志中心',
-      children: <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Card title="审计日志" extra={canExportLogs ? <Button icon={<DownloadOutlined />} onClick={() => exportFile('audit')}>导出 CSV</Button> : null}>
-          <Tabs items={auditLogTabs} />
-        </Card>
-        <Card title="RAG 日志" extra={canExportLogs ? <Button icon={<DownloadOutlined />} onClick={() => exportFile('rag')}>导出 CSV</Button> : null}>
+      <Card title="RAG 日志" extra={canExportLogs ? <Button icon={<DownloadOutlined />} onClick={() => exportFile('rag')}>导出 CSV</Button> : null}>
           <Space wrap style={{ marginBottom: 16 }}>
             <Input.Search allowClear placeholder="搜索操作、用户、图片或错误" style={{ width: 280 }} value={ragKeyword} onChange={e => setRagKeyword(e.target.value)} />
             <Select
@@ -420,45 +481,95 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
             <Button onClick={() => { setRagKeyword(''); setRagOperation(undefined); }}>清空筛选</Button>
           </Space>
           <Table rowKey="id" loading={loading} dataSource={filteredRagLogs} columns={logColumns} pagination={tablePagination(ragPageSize, setRagPageSize)} scroll={{ x: 1000 }} />
+      </Card>
+    </Space>
+  ) : <Card>当前账号没有日志查看权限。</Card>;
+
+  const renderTasks = () => canViewTasks ? <Tabs items={taskTabs} /> : <Card>当前账号没有任务查看权限。</Card>;
+
+  const viewTitles: Record<AdminView, string> = {
+    home: '管理概览',
+    users: '用户管理',
+    permissions: '管理员权限',
+    logs: '日志中心',
+    tasks: '任务中心',
+    settings: '账号设置',
+    about: '关于我们',
+  };
+
+  const renderContent = () => {
+    if (activeView === 'home') return renderHome();
+    if (activeView === 'users') return renderUsers();
+    if (activeView === 'permissions') return renderPermissions();
+    if (activeView === 'logs') return renderLogs();
+    if (activeView === 'tasks') return renderTasks();
+    if (activeView === 'settings') return <SettingsPanel user={currentUser} onUserUpdated={onUserUpdated} />;
+    return <AboutPanel />;
+  };
+
+  if (!activeView) {
+    return (
+      <div className="biophilic-page" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <Card style={{ maxWidth: 520, textAlign: 'center' }}>
+          <h2 style={{ color: '#3D5A40', marginBottom: 8 }}>页面不存在</h2>
+          <p style={{ color: '#8B7355', marginBottom: 20 }}>你访问的管理后台地址没有对应的页面。</p>
+          <Button type="primary" onClick={() => navigate('/admin', { replace: true })}>返回管理概览</Button>
         </Card>
-      </Space>
-    } : null,
-    canViewTasks ? {
-      key: 'tasks',
-      label: '任务中心',
-      children: <Tabs items={taskTabs} />
-    } : null,
-    {
-      key: 'settings',
-      label: '账号设置',
-      children: <SettingsPanel user={currentUser} onUserUpdated={onUserUpdated} />
-    },
-  ].filter(Boolean) as any[];
+      </div>
+    );
+  }
 
   return (
-    <div className="biophilic-page" style={{ minHeight: '100vh' }}>
-      <header className="biophilic-header" style={{ height: 64, color: '#3D5A40', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px' }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>自然相册管理后台</div>
-          <div style={{ fontSize: 12, color: '#8B7355' }}>{currentUser.nickname || currentUser.username}</div>
+    <div className="biophilic-page" style={{ display: 'flex', minHeight: '100vh' }}>
+      <aside className="biophilic-sidebar" style={{ width: 220, flexShrink: 0, position: 'fixed', left: 0, top: 0, height: '100vh', zIndex: 101 }}>
+        <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(168, 198, 160, 0.2)', display: 'flex', alignItems: 'center', gap: 12, height: 64 }}>
+          <AppstoreOutlined style={{ fontSize: 28, color: '#5B7B5E', flexShrink: 0 }} />
+          <span style={{ fontSize: 18, fontWeight: 600, color: '#3D5A40', whiteSpace: 'nowrap', overflow: 'hidden' }}>自然相册</span>
         </div>
-        <Space>
-          <Avatar src={currentUser.avatarFilename ? userAPI.getAvatarUrl() : userAPI.getDefaultAvatarUrl()} icon={<UserOutlined />} style={{ background: '#7D9B76' }} />
-          <Button icon={<ReloadOutlined />} onClick={loadAll}>刷新</Button>
-          <Button icon={<LogoutOutlined />} onClick={onLogout}>登出</Button>
-        </Space>
-      </header>
 
-      <main style={{ padding: 28, maxWidth: 1440, margin: '0 auto' }}>
-        <Space style={{ marginBottom: 20 }} size="large" wrap>
-          {canViewUsers && <Card><Statistic title="用户总数" value={users.length} /></Card>}
-          {canViewUsers && <Card><Statistic title="管理员" value={users.filter(user => user.roles?.includes('ADMIN') || user.isSuperAdmin).length} /></Card>}
-          {canViewTasks && <Card><Statistic title="上传任务" value={uploadTasks.length} /></Card>}
-          {canViewTasks && <Card><Statistic title="下载任务" value={downloadTasks.length} /></Card>}
-        </Space>
+        <nav className="biophilic-sidebar-nav" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, padding: '32px 12px 16px' }}>
+          <AdminNavButton active={activeView === 'home'} icon={<DashboardOutlined />} label="管理概览" onClick={() => navigate(adminViewToPath.home)} />
+          {canViewUsers && <AdminNavButton active={activeView === 'users'} icon={<TeamOutlined />} label="用户管理" onClick={() => navigate(adminViewToPath.users)} />}
+          {canViewRoles && <AdminNavButton active={activeView === 'permissions'} icon={<SafetyCertificateOutlined />} label="管理员权限" onClick={() => navigate(adminViewToPath.permissions)} />}
+          {canViewLogs && <AdminNavButton active={activeView === 'logs'} icon={<FileTextOutlined />} label="日志中心" onClick={() => navigate(adminViewToPath.logs)} />}
+          {canViewTasks && <AdminNavButton active={activeView === 'tasks'} icon={<DownloadOutlined />} label="任务中心" onClick={() => navigate(adminViewToPath.tasks)} />}
+        </nav>
 
-        {tabItems.length > 0 ? <Tabs items={tabItems} /> : <Card>当前账号没有可用的后台查看权限。</Card>}
-      </main>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(168, 198, 160, 0.2)' }}>
+          <AdminNavButton active={activeView === 'settings'} icon={<SettingOutlined />} label="设置" onClick={() => navigate(adminViewToPath.settings)} />
+          <AdminNavButton active={activeView === 'about'} icon={<InfoCircleOutlined />} label="关于我们" onClick={() => navigate(adminViewToPath.about)} />
+        </div>
+      </aside>
+
+      <div style={{ flex: 1, marginLeft: 220, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <header className="biophilic-header" style={{ height: 64, color: '#3D5A40', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px' }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{viewTitles[activeView]}</div>
+            <div style={{ fontSize: 12, color: '#8B7355' }}>自然相册管理后台</div>
+          </div>
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={loadAll}>刷新</Button>
+            <Dropdown
+              menu={{
+                items: [
+                  { key: 'settings', label: '账号设置', icon: <SettingOutlined />, onClick: () => navigate(adminViewToPath.settings) },
+                  { key: 'logout', label: '登出', icon: <LogoutOutlined />, onClick: onLogout },
+                ],
+              }}
+              placement="bottomRight"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(168, 198, 160, 0.12)', borderRadius: 20, cursor: 'pointer' }}>
+                <Avatar size={24} src={currentUser.avatarFilename ? userAPI.getAvatarUrl() : userAPI.getDefaultAvatarUrl()} icon={<UserOutlined />} style={{ background: '#7D9B76' }} />
+                <span style={{ color: '#3D5A40', fontSize: 14, fontWeight: 500 }}>{currentUser.nickname || currentUser.username}</span>
+              </div>
+            </Dropdown>
+          </Space>
+        </header>
+
+        <main style={{ flex: 1, padding: '24px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          {renderContent()}
+        </main>
+      </div>
 
       <Modal title="创建用户" open={createOpen} onOk={createUser} onCancel={() => setCreateOpen(false)} okText="创建" cancelText="取消">
         <Form form={form} layout="vertical" initialValues={{ role: 'USER' }}>

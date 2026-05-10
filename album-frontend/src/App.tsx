@@ -11,7 +11,8 @@ import {
   ProfileOutlined,
   InfoCircleOutlined
 } from '@ant-design/icons';
-import { Avatar, Input, Button, message, Dropdown } from 'antd';
+import { Avatar, Input, Button, message, Dropdown, Result } from 'antd';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Login from './components/Login';
 import HomeDashboard from './components/HomeDashboard';
 import AIChat from './components/AIChat';
@@ -45,14 +46,61 @@ export interface AppUser {
 
 export type AppView = 'home' | 'chat' | 'faces' | 'gallery' | 'recycle' | 'search' | 'transfer' | 'settings' | 'membership' | 'profile' | 'about';
 
+const userPathToView: Record<string, AppView> = {
+  '/': 'home',
+  '/chat': 'chat',
+  '/faces': 'faces',
+  '/photos': 'gallery',
+  '/recycle': 'recycle',
+  '/search': 'search',
+  '/transfer': 'transfer',
+  '/settings': 'settings',
+  '/membership': 'membership',
+  '/profile': 'profile',
+  '/about': 'about',
+};
+
+const adminPaths = new Set([
+  '/admin',
+  '/admin/users',
+  '/admin/permissions',
+  '/admin/logs',
+  '/admin/tasks',
+  '/admin/settings',
+  '/admin/about',
+]);
+
+const publicPaths = new Set(['/login']);
+
+const isKnownPath = (pathname: string) => Boolean(userPathToView[pathname]) || adminPaths.has(pathname) || publicPaths.has(pathname);
+
+const isAdminUser = (user: AppUser) => user.isSuperAdmin || user.roles?.includes('SUPER_ADMIN') || user.roles?.includes('ADMIN');
+
+const NotFound = () => {
+  const navigate = useNavigate();
+
+  return (
+    <div className="biophilic-page" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <Result
+        status="404"
+        title="页面不存在"
+        subTitle="你访问的地址没有对应的页面。"
+        extra={<Button type="primary" onClick={() => navigate('/', { replace: true })}>返回首页</Button>}
+      />
+    </div>
+  );
+};
+
 function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  const [activeView, setActiveView] = useState<AppView>('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshKey] = useState(0);
   const [galleryFolderId, setGalleryFolderId] = useState<number | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const activeView = userPathToView[location.pathname];
 
   const fetchUserInfo = async () => {
     try {
@@ -60,20 +108,20 @@ function App() {
       if (response.data.success) {
         const user = response.data.data as AppUser;
         setCurrentUser(user);
-        return true;
+        return user;
       }
     } catch (error) {
       console.error('获取用户信息失败:', error);
     }
-    return false;
+    return null;
   };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       setAuthLoading(true);
-      fetchUserInfo().then(ok => {
-        if (ok) setIsLoggedIn(true);
+      fetchUserInfo().then(user => {
+        if (user) setIsLoggedIn(true);
         else localStorage.removeItem('token');
         setAuthLoading(false);
       });
@@ -82,9 +130,10 @@ function App() {
 
   const handleLoginSuccess = async () => {
     setAuthLoading(true);
-    const ok = await fetchUserInfo();
-    if (ok) {
+    const user = await fetchUserInfo();
+    if (user) {
       setIsLoggedIn(true);
+      navigate(isAdminUser(user) ? '/admin' : '/', { replace: true });
     } else {
       message.error('登录信息获取失败，请重新登录');
       localStorage.removeItem('token');
@@ -96,6 +145,7 @@ function App() {
     localStorage.removeItem('token');
     setIsLoggedIn(false);
     setCurrentUser(null);
+    navigate('/login', { replace: true });
     message.success('已登出');
   };
 
@@ -103,10 +153,16 @@ function App() {
     fetchUserInfo();
   };
 
+  useEffect(() => {
+    if (activeView === 'search') {
+      setSearchQuery(new URLSearchParams(location.search).get('q') || '');
+    }
+  }, [activeView, location.search]);
+
   const handleSearch = (value: string) => {
     if (value.trim()) {
       setSearchQuery(value.trim());
-      setActiveView('search');
+      navigate(`/search?q=${encodeURIComponent(value.trim())}`);
     }
   };
 
@@ -123,15 +179,29 @@ function App() {
     );
   }
 
+  if (!isKnownPath(location.pathname)) {
+    return <NotFound />;
+  }
+
   if (!isLoggedIn || !currentUser) {
+    if (location.pathname !== '/login') return <Navigate to="/login" replace state={{ from: location }} />;
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  const isAdmin = currentUser.isSuperAdmin || currentUser.roles?.includes('SUPER_ADMIN') || currentUser.roles?.includes('ADMIN');
+  if (location.pathname === '/login') {
+    return <Navigate to={isAdminUser(currentUser) ? '/admin' : '/'} replace />;
+  }
 
-  if (isAdmin) {
+  if (isAdminUser(currentUser)) {
+    if (!location.pathname.startsWith('/admin')) return <Navigate to="/admin" replace />;
     return <AdminDashboard currentUser={currentUser} onLogout={handleLogout} onUserUpdated={setCurrentUser} />;
   }
+
+  if (location.pathname.startsWith('/admin')) {
+    return <Result status="403" title="无权访问" subTitle="当前账号没有管理后台权限。" extra={<Button type="primary" onClick={() => navigate('/')}>返回首页</Button>} />;
+  }
+
+  if (!activeView) return <NotFound />;
 
   const sidebarWidth = 220;
   const isHomeActive = activeView === 'home' || activeView === 'chat' || activeView === 'faces' || activeView === 'gallery' || activeView === 'recycle';
@@ -176,7 +246,7 @@ function App() {
         <nav className="biophilic-sidebar-nav" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 8, padding: '32px 12px 16px' }}>
           <button
             className={`biophilic-sidebar-item ${isHomeActive ? 'active' : ''}`}
-            onClick={() => setActiveView('home')}
+            onClick={() => navigate('/')}
           >
             <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}>
               <HomeOutlined />
@@ -187,7 +257,7 @@ function App() {
           </button>
           <button
             className={`biophilic-sidebar-item ${activeView === 'transfer' ? 'active' : ''}`}
-            onClick={() => setActiveView('transfer')}
+            onClick={() => navigate('/transfer')}
           >
             <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}>
               <SwapOutlined />
@@ -205,7 +275,7 @@ function App() {
         }}>
           <button
             className={`biophilic-sidebar-item ${activeView === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveView('settings')}
+            onClick={() => navigate('/settings')}
           >
             <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}>
               <SettingOutlined />
@@ -216,7 +286,7 @@ function App() {
           </button>
           <button
             className={`biophilic-sidebar-item ${activeView === 'about' ? 'active' : ''}`}
-            onClick={() => setActiveView('about')}
+            onClick={() => navigate('/about')}
           >
             <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}>
               <InfoCircleOutlined />
@@ -273,7 +343,7 @@ function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             {/* 套餐 / 会员状态 */}
             <button
-              onClick={() => setActiveView('membership')}
+              onClick={() => navigate('/membership')}
               style={{
                 background: currentUser?.isMember
                   ? 'linear-gradient(135deg, #7D9B76 0%, #5D7A56 100%)'
@@ -323,7 +393,7 @@ function App() {
                     key: 'profile',
                     label: '个人信息',
                     icon: <ProfileOutlined />,
-                    onClick: () => setActiveView('profile'),
+                    onClick: () => navigate('/profile'),
                   },
                   {
                     key: 'logout',
@@ -366,16 +436,16 @@ function App() {
             <HomeDashboard
               userId={currentUser.id}
               refreshKey={refreshKey}
-              onNavigateToChat={() => setActiveView('chat')}
-              onNavigateToFaces={() => setActiveView('faces')}
-              onNavigateToGallery={() => setActiveView('gallery')}
+              onNavigateToChat={() => navigate('/chat')}
+              onNavigateToFaces={() => navigate('/faces')}
+              onNavigateToGallery={() => navigate('/photos')}
             />
           )}
           {activeView === 'chat' && (
-            <AIChat userId={currentUser.id} onBack={() => setActiveView('home')} />
+            <AIChat userId={currentUser.id} onBack={() => navigate('/')} />
           )}
           {activeView === 'faces' && (
-            <FaceManager userId={currentUser.id} onBack={() => setActiveView('home')} />
+            <FaceManager userId={currentUser.id} onBack={() => navigate('/')} />
           )}
           {activeView === 'gallery' && (
             <PhotoGallery
@@ -384,20 +454,20 @@ function App() {
               refreshKey={refreshKey}
               onBack={() => {
                 setGalleryFolderId(null);
-                setActiveView('home');
+                navigate('/');
               }}
-              onNavigateToTransfer={() => setActiveView('transfer')}
-              onNavigateToRecycle={() => setActiveView('recycle')}
+              onNavigateToTransfer={() => navigate('/transfer')}
+              onNavigateToRecycle={() => navigate('/recycle')}
             />
           )}
           {activeView === 'recycle' && (
-            <RecycleBin userId={currentUser.id} onBack={() => setActiveView('gallery')} />
+            <RecycleBin userId={currentUser.id} onBack={() => navigate('/photos')} />
           )}
           {activeView === 'search' && (
             <SmartSearch
               userId={currentUser.id}
               initialQuery={searchQuery}
-              onBack={() => setActiveView('home')}
+              onBack={() => navigate('/')}
             />
           )}
           {activeView === 'transfer' && (
