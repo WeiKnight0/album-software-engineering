@@ -2,6 +2,7 @@ package com.photo.backend.user.service;
 
 import com.photo.backend.common.entity.User;
 import com.photo.backend.common.repository.UserRepository;
+import com.photo.backend.user.dto.AuthTokens;
 import com.photo.backend.user.dto.CurrentUserDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +33,9 @@ public class UserService {
 
     @Autowired
     private RbacService rbacService;
+
+    @Autowired
+    private RefreshTokenService refreshTokenService;
 
     @Autowired
     private Environment environment;
@@ -146,7 +150,7 @@ public class UserService {
         return Files.exists(path) ? path : null;
     }
 
-    public String login(String username, String password) {
+    public AuthTokens login(String username, String password) {
         logger.info("Login attempt for user: {}", username);
 
         Optional<User> userOptional = userRepository.findByUsername(username);
@@ -174,8 +178,18 @@ public class UserService {
         }
 
         String token = generateToken(user);
+        String refreshToken = refreshTokenService.createRefreshToken(user);
         logger.info("Login successful for user: {}", username);
-        return token;
+        return new AuthTokens(token, refreshToken);
+    }
+
+    public AuthTokens refresh(String refreshToken) {
+        RefreshTokenService.RefreshResult result = refreshTokenService.rotate(refreshToken);
+        return new AuthTokens(generateToken(result.user()), result.refreshToken());
+    }
+
+    public void logout(String refreshToken) {
+        refreshTokenService.revoke(refreshToken);
     }
 
     public User updateUser(Integer userId, User updatedUser) {
@@ -216,6 +230,7 @@ public class UserService {
         }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        refreshTokenService.revokeAllForUser(userId);
     }
 
     public User getUserById(Integer userId) {
@@ -249,7 +264,11 @@ public class UserService {
     public User updateUserStatus(Integer userId, Integer status) {
         User user = getUserById(userId);
         user.setStatus(status);
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        if (status == null || status != 1) {
+            refreshTokenService.revokeAllForUser(userId);
+        }
+        return saved;
     }
 
     public User updateMembership(Integer userId, Boolean isMember, java.time.LocalDateTime expireAt) {

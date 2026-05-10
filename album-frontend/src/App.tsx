@@ -14,11 +14,13 @@ import {
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { Avatar, Button, Dropdown, Input, message, Result } from 'antd';
+import { Button, Dropdown, Input, message, Result } from 'antd';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { userAPI } from './services/api';
+import { authAPI, userAPI } from './services/api';
+import { clearAccessToken, setAccessToken } from './services/authToken';
 import './styles/biophilic-theme.css';
 import './App.css';
+import AuthAvatar from './components/AuthAvatar';
 
 const Login = lazy(() => import('./components/Login'));
 const HomeDashboard = lazy(() => import('./components/HomeDashboard'));
@@ -240,7 +242,7 @@ const UserLayout: React.FC<UserLayoutProps> = ({ currentUser, onLogout }) => {
               placement="bottomRight"
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(168, 198, 160, 0.12)', borderRadius: 20, cursor: 'pointer', transition: 'all 200ms ease' }}>
-                <Avatar size={24} src={currentUser.avatarFilename ? userAPI.getAvatarUrl() : userAPI.getDefaultAvatarUrl()} icon={<UserOutlined />} style={{ background: '#7D9B76' }} />
+                <AuthAvatar size={24} hasCustomAvatar={Boolean(currentUser.avatarFilename)} icon={<UserOutlined />} style={{ background: '#7D9B76' }} />
                 <span style={{ color: '#3D5A40', fontSize: 14, fontWeight: 500 }}>{currentUser.nickname || currentUser.username}</span>
               </div>
             </Dropdown>
@@ -279,15 +281,20 @@ function App() {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     setAuthLoading(true);
-    fetchUserInfo().then(user => {
-      if (user) setIsLoggedIn(true);
-      else localStorage.removeItem('token');
-      setAuthLoading(false);
-    });
+    authAPI.refresh()
+      .then(async response => {
+        const token = response.data?.data?.accessToken;
+        if (!token) return null;
+        setAccessToken(token);
+        return fetchUserInfo();
+      })
+      .then(user => {
+        if (user) setIsLoggedIn(true);
+        else clearAccessToken();
+      })
+      .catch(() => clearAccessToken())
+      .finally(() => setAuthLoading(false));
   }, []);
 
   const handleLoginSuccess = async () => {
@@ -298,13 +305,18 @@ function App() {
       navigate(isAdminUser(user) ? '/admin' : '/', { replace: true });
     } else {
       message.error('登录信息获取失败，请重新登录');
-      localStorage.removeItem('token');
+      clearAccessToken();
     }
     setAuthLoading(false);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout();
+    } catch {
+      // Local logout still succeeds if the server session is already gone.
+    }
+    clearAccessToken();
     setIsLoggedIn(false);
     setCurrentUser(null);
     navigate('/login', { replace: true });

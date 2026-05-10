@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Avatar, Button, Card, Checkbox, Dropdown, Form, Input, message, Modal, Select, Space, Statistic, Switch, Table, Tabs, Tag } from 'antd';
+import { Button, Card, Checkbox, Dropdown, Form, Input, message, Modal, Select, Space, Statistic, Switch, Table, Tabs, Tag } from 'antd';
 import {
   AppstoreOutlined,
   DashboardOutlined,
@@ -19,6 +19,7 @@ import { adminAPI, userAPI } from '../services/api';
 import type { AppUser } from '../App';
 import SettingsPanel from './SettingsPanel';
 import AboutPanel from './AboutPanel';
+import AuthAvatar from './AuthAvatar';
 
 interface AdminDashboardProps {
   currentUser: AppUser;
@@ -494,7 +495,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
                     gap: 10,
                   }}
                 >
-                  <Avatar src={userAPI.getDefaultAvatarUrl()} icon={<UserOutlined />} style={{ background: '#7D9B76', flexShrink: 0 }} />
+                  <AuthAvatar src={userAPI.getDefaultAvatarUrl()} icon={<UserOutlined />} style={{ background: '#7D9B76', flexShrink: 0 }} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ color: '#3D5A40', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.nickname || user.username}</div>
                     <div style={{ color: '#8B7355', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.username} · {user.email}</div>
@@ -621,7 +622,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
               placement="bottomRight"
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(168, 198, 160, 0.12)', borderRadius: 20, cursor: 'pointer' }}>
-                <Avatar size={24} src={currentUser.avatarFilename ? userAPI.getAvatarUrl() : userAPI.getDefaultAvatarUrl()} icon={<UserOutlined />} style={{ background: '#7D9B76' }} />
+                <AuthAvatar size={24} hasCustomAvatar={Boolean(currentUser.avatarFilename)} icon={<UserOutlined />} style={{ background: '#7D9B76' }} />
                 <span style={{ color: '#3D5A40', fontSize: 14, fontWeight: 500 }}>{currentUser.nickname || currentUser.username}</span>
               </div>
             </Dropdown>

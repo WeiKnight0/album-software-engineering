@@ -1,4 +1,6 @@
 import axios from 'axios'
+import type { InternalAxiosRequestConfig } from 'axios'
+import { clearAccessToken, getAccessToken, setAccessToken } from './authToken'
 
 type RequestConfigWithAuthControl = {
   skipAuthRedirect?: boolean
@@ -7,14 +9,28 @@ type RequestConfigWithAuthControl = {
 const api = axios.create({
   baseURL: '/api',
   timeout: 30000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
   }
 })
 
-const tokenQuery = () => {
-  const token = localStorage.getItem('token')
-  return token ? `token=${encodeURIComponent(token)}` : ''
+let refreshPromise: Promise<string> | null = null
+
+const refreshAccessToken = async () => {
+  if (!refreshPromise) {
+    refreshPromise = axios.post('/api/auth/refresh', {}, { withCredentials: true })
+      .then(response => {
+        const token = response.data?.data?.accessToken
+        if (!token) throw new Error('Missing access token')
+        setAccessToken(token)
+        return token
+      })
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+  return refreshPromise
 }
 
 export type PageParams = {
@@ -34,7 +50,7 @@ const cleanParams = (params: PageParams = {}) => Object.fromEntries(
 
 api.interceptors.request.use(
   config => {
-    const token = localStorage.getItem('token')
+    const token = getAccessToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -45,14 +61,27 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   response => response,
-  error => {
+  async error => {
     console.error('API Error:', error)
     const shouldSkipRedirect = Boolean((error.config as RequestConfigWithAuthControl | undefined)?.skipAuthRedirect)
+    const originalRequest = error.config as (InternalAxiosRequestConfig & RequestConfigWithAuthControl & { _retry?: boolean }) | undefined
     const requestUrl = error.config?.url || ''
     const isAdminRequest = requestUrl.startsWith('/admin/')
     const isAuthExpired = error.response?.status === 401 || (error.response?.status === 403 && !isAdminRequest)
+    if (isAuthExpired && !shouldSkipRedirect && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true
+      try {
+        const token = await refreshAccessToken()
+        originalRequest.headers = originalRequest.headers || {}
+        ;(originalRequest.headers as any).Authorization = `Bearer ${token}`
+        return api(originalRequest as any)
+      } catch {
+        clearAccessToken()
+        window.location.reload()
+      }
+    }
     if (isAuthExpired && !shouldSkipRedirect) {
-      localStorage.removeItem('token')
+      clearAccessToken()
       window.location.reload()
     }
     return Promise.reject(error)
@@ -66,7 +95,14 @@ export const authAPI = {
   },
   register: (userData: { username: string; password: string; confirmPassword: string; email: string; nickname?: string }) => {
     return api.post('/auth/register', userData, { skipAuthRedirect: true } as any)
-  }
+  },
+  refresh: () => axios.post('/api/auth/refresh', {}, { withCredentials: true }),
+  logout: () => api.post('/auth/logout', {})
+}
+
+export const authResourceUrl = async (url: string) => {
+  const response = await api.get(url.replace(/^\/api/, ''), { responseType: 'blob' })
+  return URL.createObjectURL(response.data)
 }
 
 // ==================== 用户相关API ====================
@@ -85,7 +121,8 @@ export const userAPI = {
     formData.append('file', file)
     return api.post('/users/me/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
   },
-  getAvatarUrl: () => `/api/users/me/avatar?${tokenQuery()}`,
+  getAvatarUrl: () => '/api/users/me/avatar',
+  getAvatarBlobUrl: () => authResourceUrl('/api/users/me/avatar'),
   getDefaultAvatarUrl: () => '/default-avatar.webp'
 }
 
@@ -160,11 +197,17 @@ export const imageAPI = {
   },
 
   getThumbnailUrl: (imageId: string, _userId: number) => {
-    return `/api/images/${imageId}/thumbnail?${tokenQuery()}`
+    return `/api/images/${imageId}/thumbnail`
+  },
+  getThumbnailBlobUrl: (imageId: string, _userId: number) => {
+    return authResourceUrl(`/api/images/${imageId}/thumbnail`)
   },
 
   getDownloadUrl: (imageId: string, _userId: number) => {
-    return `/api/images/${imageId}/download?${tokenQuery()}`
+    return `/api/images/${imageId}/download`
+  },
+  getDownloadBlobUrl: (imageId: string, _userId: number) => {
+    return authResourceUrl(`/api/images/${imageId}/download`)
   },
 
   getAnalysis: (imageId: string, _userId: number) => {
@@ -239,7 +282,10 @@ export const faceAPI = {
   },
 
   getCoverUrl: (faceId: number, _userId: number) => {
-    return `/api/face/${faceId}/cover?${tokenQuery()}`
+    return `/api/face/${faceId}/cover`
+  },
+  getCoverBlobUrl: (faceId: number, _userId: number) => {
+    return authResourceUrl(`/api/face/${faceId}/cover`)
   }
 }
 

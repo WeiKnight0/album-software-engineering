@@ -12,6 +12,7 @@ import {
   CloseSquareOutlined
 } from '@ant-design/icons';
 import { imageAPI, folderAPI } from '../services/api';
+import AuthImage from './AuthImage';
 
 interface ImageItem {
   id: string;
@@ -428,7 +429,7 @@ const RecycleBin: React.FC<RecycleBinProps> = ({ userId, onRestored, onBack }) =
                             style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px 16px 0 0', background: '#f0f0f0', cursor: 'pointer' }}
                             onClick={() => toggleImageSelection(photo.id)}
                           >
-                            <img
+                            <AuthImage
                               src={imageAPI.getThumbnailUrl(photo.id, photo.userId)}
                               alt={photo.originalFilename}
                               style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block', filter: 'grayscale(30%)' }}

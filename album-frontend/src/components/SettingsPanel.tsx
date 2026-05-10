@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
-import { Avatar, Button, Form, Input, message, Space, Upload } from 'antd';
+import { Button, Form, Input, message, Space, Upload } from 'antd';
 import { CalendarOutlined, CrownOutlined, DatabaseOutlined, LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
 import { userAPI } from '../services/api';
 import type { AppUser } from '../App';
+import AuthAvatar from './AuthAvatar';
 
 interface SettingsPanelProps {
   user: AppUser;
@@ -61,7 +62,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ user, onUserUpdated }) =>
         </h2>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 28 }}>
-          <Avatar size={80} src={user.avatarFilename ? userAPI.getAvatarUrl() : userAPI.getDefaultAvatarUrl()} icon={<UserOutlined />} style={{ background: '#7D9B76' }} />
+          <AuthAvatar size={80} hasCustomAvatar={Boolean(user.avatarFilename)} icon={<UserOutlined />} style={{ background: '#7D9B76' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <Upload showUploadList={false} accept="image/jpeg,image/png,image/webp" beforeUpload={uploadAvatar}>
               <Button>上传头像</Button>

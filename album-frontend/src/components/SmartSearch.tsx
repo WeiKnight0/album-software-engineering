@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Input, Button, Empty, Spin, Tag, message, Modal } from 'antd';
 import { SearchOutlined, PictureOutlined, CloseCircleOutlined, CompassOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { imageAPI, searchAPI } from '../services/api';
+import AuthImage from './AuthImage';
 
 interface SearchResult {
   id: string;
@@ -70,7 +71,7 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ userId, initialQuery, onBack 
   };
 
   const handlePreview = (photo: SearchResult) => {
-    setPreviewImage(imageAPI.getDownloadUrl(photo.id, userId));
+    imageAPI.getDownloadBlobUrl(photo.id, userId).then(setPreviewImage).catch(() => message.error('预览失败'));
     setPreviewPhoto(photo);
     setPreviewVisible(true);
   };
@@ -277,7 +278,7 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ userId, initialQuery, onBack 
                     className="biophilic-photo-card"
                     style={{ cursor: 'pointer' }}
                     >
-                      <img
+                      <AuthImage
                       src={imageAPI.getThumbnailUrl(photo.id, userId)}
                       alt={photo.originalFilename}
                       style={{

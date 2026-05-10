@@ -8,6 +8,7 @@ import {
   ArrowLeftOutlined
 } from '@ant-design/icons';
 import { faceAPI, imageAPI } from '../services/api';
+import AuthImage from './AuthImage';
 
 interface FaceItem {
   face_id: number;
@@ -56,6 +57,7 @@ const FaceManager: React.FC<FaceManagerProps> = ({ userId, embedded, onBack }) =
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
   const [previewPhoto, setPreviewPhoto] = useState<any>(null);
+  const [coverUrls, setCoverUrls] = useState<Record<number, string>>({});
   const [viewMode, setViewMode] = useState<'large' | 'medium' | 'small'>('medium');
   const [detailViewMode, setDetailViewMode] = useState<'large' | 'medium' | 'small'>('medium');
 
@@ -75,6 +77,22 @@ const FaceManager: React.FC<FaceManagerProps> = ({ userId, embedded, onBack }) =
     fetchFaces();
   }, [userId]);
 
+  useEffect(() => {
+    let active = true;
+    const urls: Record<number, string> = {};
+    Promise.all(faces.filter(face => face.cover_path).map(async face => {
+      const url = await faceAPI.getCoverBlobUrl(face.face_id, userId);
+      urls[face.face_id] = url;
+    })).then(() => {
+      if (active) setCoverUrls(urls);
+      else Object.values(urls).forEach(URL.revokeObjectURL);
+    }).catch(() => undefined);
+    return () => {
+      active = false;
+      Object.values(urls).forEach(URL.revokeObjectURL);
+    };
+  }, [faces, userId]);
+
   const openDetail = async (face: FaceItem) => {
     try {
       const response = await faceAPI.getImages(face.face_id, userId);
@@ -87,7 +105,7 @@ const FaceManager: React.FC<FaceManagerProps> = ({ userId, embedded, onBack }) =
   };
 
   const handlePreview = (photo: any) => {
-    setPreviewImage(imageAPI.getDownloadUrl(photo.id, userId));
+    imageAPI.getDownloadBlobUrl(photo.id, userId).then(setPreviewImage).catch(() => message.error('预览失败'));
     setPreviewPhoto(photo);
     setPreviewVisible(true);
   };
@@ -323,7 +341,7 @@ const FaceManager: React.FC<FaceManagerProps> = ({ userId, embedded, onBack }) =
                   style={{
                     height: coverHeight,
                     background: face.cover_path
-                      ? `url(${faceAPI.getCoverUrl(face.face_id, userId)}) center/cover`
+                      ? `url(${coverUrls[face.face_id] || ''}) center/cover`
                       : 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
                     display: 'flex',
                     alignItems: 'center',
@@ -471,7 +489,7 @@ const FaceManager: React.FC<FaceManagerProps> = ({ userId, embedded, onBack }) =
                   boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                   cursor: 'pointer',
                 }} onClick={() => handlePreview(img)}>
-                  <img
+                  <AuthImage
                     src={imageAPI.getThumbnailUrl(img.id, userId)}
                     alt={img.originalFilename}
                     style={{

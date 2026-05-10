@@ -15,6 +15,7 @@ import {
   EditOutlined
 } from '@ant-design/icons';
 import { imageAPI, folderAPI, downloadTaskAPI } from '../services/api';
+import AuthImage from './AuthImage';
 
 interface ImageItem {
   id: string;
@@ -162,7 +163,7 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({ userId, folderId, refreshKe
   }, [userId, activeFolderId, refreshKey]);
 
   const handlePreview = (photo: ImageItem) => {
-    setPreviewImage(imageAPI.getDownloadUrl(photo.id, photo.userId));
+    imageAPI.getDownloadBlobUrl(photo.id, photo.userId).then(setPreviewImage).catch(() => message.error('预览失败'));
     setPreviewPhoto(photo);
     setPreviewVisible(true);
   };
@@ -178,13 +179,7 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({ userId, folderId, refreshKe
       const taskId = taskRes.data.data.taskId;
 
       // 2. 下载文件
-      const token = localStorage.getItem('token');
-      const response = await fetch(imageAPI.getDownloadUrl(photo.id, userId), {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error('Download failed');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = await imageAPI.getDownloadBlobUrl(photo.id, userId);
       const link = document.createElement('a');
       link.href = url;
       link.download = photo.originalFilename || 'download';
@@ -652,7 +647,7 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({ userId, folderId, refreshKe
                       <Checkbox checked={isSelected} onChange={() => toggleSelection(photo.id)} />
                     </div>
                   )}
-                  <img
+                  <AuthImage
                     src={imageAPI.getThumbnailUrl(photo.id, photo.userId)}
                     alt={photo.originalFilename}
                     loading="lazy"
@@ -737,7 +732,7 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({ userId, folderId, refreshKe
                     }}
                     onClick={() => isManaging ? toggleSelection(photo.id) : handlePreview(photo)}
                   >
-                    <img
+                    <AuthImage
                       src={imageAPI.getThumbnailUrl(photo.id, photo.userId)}
                       alt={photo.originalFilename}
                       loading="lazy"

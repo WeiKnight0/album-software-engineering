@@ -101,7 +101,7 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
   const processTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchTasks = async () => {
-    if (!userId || !localStorage.getItem('token')) {
+    if (!userId) {
       setTasks([]);
       setLoading(false);
       return;
@@ -118,7 +118,7 @@ const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) =
   };
 
   useEffect(() => {
-    if (!userId || !localStorage.getItem('token')) {
+    if (!userId) {
       setTasks([]);
       setLoading(false);
       return;

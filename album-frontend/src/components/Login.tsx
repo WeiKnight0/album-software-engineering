@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Form, Input, Button, message, Alert } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import { authAPI } from '../services/api';
+import { setAccessToken } from '../services/authToken';
 
 interface LoginProps {
   onLoginSuccess: () => void;
@@ -52,8 +53,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     try {
       const response = await authAPI.login(values);
       if (response.data.success) {
-        const token = response.data.data.token;
-        localStorage.setItem('token', token);
+        const token = response.data.data.accessToken;
+        setAccessToken(token);
         message.success('欢迎回来 🌿');
         onLoginSuccess();
       } else {

@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { faceAPI, folderAPI, imageAPI } from '../services/api';
+import AuthImage from './AuthImage';
 
 interface HomeDashboardProps {
   userId: number;
@@ -262,7 +263,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                     boxShadow: '0 2px 10px rgba(91,123,94,0.14)',
                   }}
                 >
-                  <img
+                  <AuthImage
                     src={imageAPI.getThumbnailUrl(photo.id, userId)}
                     alt={photo.originalFilename}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
