@@ -556,7 +556,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
     logs: '日志中心',
     tasks: '任务中心',
     settings: '账号设置',
-    about: '关于我们',
+    about: '关于产品',
   };
 
   const renderContent = () => {
@@ -599,7 +599,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
 
         <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(168, 198, 160, 0.2)' }}>
           <AdminNavButton active={activeView === 'settings'} icon={<SettingOutlined />} label="设置" onClick={() => navigate(adminViewToPath.settings)} />
-          <AdminNavButton active={activeView === 'about'} icon={<InfoCircleOutlined />} label="关于我们" onClick={() => navigate(adminViewToPath.about)} />
+          <AdminNavButton active={activeView === 'about'} icon={<InfoCircleOutlined />} label="关于产品" onClick={() => navigate(adminViewToPath.about)} />
         </div>
       </aside>
 

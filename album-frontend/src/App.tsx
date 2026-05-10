@@ -7,7 +7,7 @@ import {
   LogoutOutlined,
   MessageOutlined,
   PictureOutlined,
-  ProfileOutlined,
+
   SearchOutlined,
   SettingOutlined,
   SwapOutlined,
@@ -28,7 +28,7 @@ const PhotoGallery = lazy(() => import('./components/PhotoGallery'));
 const SmartSearch = lazy(() => import('./components/SmartSearch'));
 const TransferPanel = lazy(() => import('./components/TransferPanel'));
 const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
-const ProfilePanel = lazy(() => import('./components/ProfilePanel'));
+
 const Membership = lazy(() => import('./components/Membership'));
 const RecycleBin = lazy(() => import('./components/RecycleBin'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
@@ -42,6 +42,7 @@ export interface AppUser {
   isMember?: boolean;
   membershipExpireAt?: string;
   storageLimit?: number;
+  storageUsed?: number;
   isSuperAdmin?: boolean;
   roles?: string[];
   permissions?: string[];
@@ -182,7 +183,7 @@ const UserLayout: React.FC<UserLayoutProps> = ({ currentUser, onLogout }) => {
           </button>
           <button className={`biophilic-sidebar-item ${location.pathname === '/about' ? 'active' : ''}`} onClick={() => navigate('/about')}>
             <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}><InfoCircleOutlined /></span>
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>关于我们</span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>关于产品</span>
           </button>
         </div>
       </aside>
@@ -232,7 +233,7 @@ const UserLayout: React.FC<UserLayoutProps> = ({ currentUser, onLogout }) => {
             <Dropdown
               menu={{
                 items: [
-                  { key: 'profile', label: '个人信息', icon: <ProfileOutlined />, onClick: () => navigate('/profile') },
+                  { key: 'settings', label: '个人中心', icon: <SettingOutlined />, onClick: () => navigate('/settings') },
                   { key: 'logout', label: '登出', icon: <LogoutOutlined />, onClick: onLogout },
                 ],
               }}
@@ -376,7 +377,7 @@ function App() {
         <Route path="transfer/:tab" element={currentUser && withSuspense(<TransferPanel userId={currentUser.id} folderId={galleryFolderId} />)} />
         <Route path="settings" element={currentUser && withSuspense(<SettingsPanel user={currentUser} onUserUpdated={setCurrentUser} />)} />
         <Route path="membership" element={currentUser && withSuspense(<Membership userId={currentUser.id} isMember={currentUser.isMember} onMembershipUpdated={handleMembershipUpdated} />)} />
-        <Route path="profile" element={currentUser && withSuspense(<ProfilePanel user={currentUser} />)} />
+
         <Route path="about" element={withSuspense(<AboutPanel />)} />
       </Route>
       <Route path="*" element={<NotFound />} />
