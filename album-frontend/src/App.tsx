@@ -1,34 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import {
   AppstoreOutlined,
   CrownOutlined,
   HomeOutlined,
   InfoCircleOutlined,
   LogoutOutlined,
+  MessageOutlined,
+  PictureOutlined,
   ProfileOutlined,
   SearchOutlined,
   SettingOutlined,
   SwapOutlined,
+  TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Avatar, Button, Dropdown, Input, message, Result } from 'antd';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import Login from './components/Login';
-import HomeDashboard from './components/HomeDashboard';
-import AIChat from './components/AIChat';
-import FaceManager from './components/FaceManager';
-import PhotoGallery from './components/PhotoGallery';
-import SmartSearch from './components/SmartSearch';
-import TransferPanel from './components/TransferPanel';
-import SettingsPanel from './components/SettingsPanel';
-import ProfilePanel from './components/ProfilePanel';
-import Membership from './components/Membership';
-import RecycleBin from './components/RecycleBin';
-import AdminDashboard from './components/AdminDashboard';
-import AboutPanel from './components/AboutPanel';
 import { userAPI } from './services/api';
 import './styles/biophilic-theme.css';
 import './App.css';
+
+const Login = lazy(() => import('./components/Login'));
+const HomeDashboard = lazy(() => import('./components/HomeDashboard'));
+const AIChat = lazy(() => import('./components/AIChat'));
+const FaceManager = lazy(() => import('./components/FaceManager'));
+const PhotoGallery = lazy(() => import('./components/PhotoGallery'));
+const SmartSearch = lazy(() => import('./components/SmartSearch'));
+const TransferPanel = lazy(() => import('./components/TransferPanel'));
+const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
+const ProfilePanel = lazy(() => import('./components/ProfilePanel'));
+const Membership = lazy(() => import('./components/Membership'));
+const RecycleBin = lazy(() => import('./components/RecycleBin'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const AboutPanel = lazy(() => import('./components/AboutPanel'));
 
 export interface AppUser {
   id: number;
@@ -55,6 +59,23 @@ const LoadingScreen = () => (
       <p style={{ color: '#7D9B76' }}>正在加载你的自然记忆...</p>
     </div>
   </div>
+);
+
+const PageLoading = () => (
+  <div style={{ minHeight: 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ textAlign: 'center' } as React.CSSProperties}>
+      <div className="animate-breathe">
+        <div style={{ width: 42, height: 42, margin: '0 auto 12px', background: 'var(--gradient-leaf)', borderRadius: '16px 16px 16px 4px' }} />
+      </div>
+      <p style={{ color: '#7D9B76' }}>正在加载页面...</p>
+    </div>
+  </div>
+);
+
+const withSuspense = (element: React.ReactElement) => (
+  <Suspense fallback={<PageLoading />}>
+    {element}
+  </Suspense>
 );
 
 const NotFound = () => {
@@ -95,7 +116,7 @@ const UserLayout: React.FC<UserLayoutProps> = ({ currentUser, onLogout }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const sidebarWidth = 220;
-  const isHomeActive = ['/', '/chat', '/faces', '/photos', '/recycle'].includes(location.pathname);
+  const isHomeActive = location.pathname === '/';
 
   useEffect(() => {
     if (location.pathname === '/search') {
@@ -135,6 +156,18 @@ const UserLayout: React.FC<UserLayoutProps> = ({ currentUser, onLogout }) => {
           <button className={`biophilic-sidebar-item ${isHomeActive ? 'active' : ''}`} onClick={() => navigate('/')}>
             <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}><HomeOutlined /></span>
             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>主页</span>
+          </button>
+          <button className={`biophilic-sidebar-item ${location.pathname === '/chat' ? 'active' : ''}`} onClick={() => navigate('/chat')}>
+            <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}><MessageOutlined /></span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>智能问答</span>
+          </button>
+          <button className={`biophilic-sidebar-item ${location.pathname === '/faces' ? 'active' : ''}`} onClick={() => navigate('/faces')}>
+            <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}><TeamOutlined /></span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>人物相册</span>
+          </button>
+          <button className={`biophilic-sidebar-item ${['/photos', '/recycle'].includes(location.pathname) ? 'active' : ''}`} onClick={() => navigate('/photos')}>
+            <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}><PictureOutlined /></span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>图像管理</span>
           </button>
           <button className={`biophilic-sidebar-item ${location.pathname.startsWith('/transfer') ? 'active' : ''}`} onClick={() => navigate('/transfer/upload')}>
             <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}><SwapOutlined /></span>
@@ -298,30 +331,32 @@ function App() {
     <Routes>
       <Route
         path="/login"
-        element={isLoggedIn && currentUser ? <Navigate to={isAdminUser(currentUser) ? '/admin' : '/'} replace /> : <Login onLoginSuccess={handleLoginSuccess} />}
+        element={isLoggedIn && currentUser ? <Navigate to={isAdminUser(currentUser) ? '/admin' : '/'} replace /> : withSuspense(<Login onLoginSuccess={handleLoginSuccess} />)}
       />
       <Route
         path="/admin/*"
-        element={requireLogin(currentUser && isAdminUser(currentUser) ? <AdminDashboard currentUser={currentUser} onLogout={handleLogout} onUserUpdated={setCurrentUser} /> : <Forbidden />)}
+        element={requireLogin(currentUser && isAdminUser(currentUser) ? withSuspense(<AdminDashboard currentUser={currentUser} onLogout={handleLogout} onUserUpdated={setCurrentUser} />) : <Forbidden />)}
       />
       <Route element={requireLogin(userShell())}>
         <Route
           index
-          element={currentUser && (
+          element={currentUser && withSuspense(
             <HomeDashboard
               userId={currentUser.id}
               refreshKey={refreshKey}
               onNavigateToChat={() => navigate('/chat')}
               onNavigateToFaces={() => navigate('/faces')}
               onNavigateToGallery={() => navigate('/photos')}
+              onNavigateToTransfer={() => navigate('/transfer/upload')}
+              onNavigateToRecycle={() => navigate('/recycle')}
             />
           )}
         />
-        <Route path="chat" element={currentUser && <AIChat userId={currentUser.id} onBack={() => navigate('/')} />} />
-        <Route path="faces" element={currentUser && <FaceManager userId={currentUser.id} onBack={() => navigate('/')} />} />
+        <Route path="chat" element={currentUser && withSuspense(<AIChat userId={currentUser.id} onBack={() => navigate('/')} />)} />
+        <Route path="faces" element={currentUser && withSuspense(<FaceManager userId={currentUser.id} onBack={() => navigate('/')} />)} />
         <Route
           path="photos"
-          element={currentUser && (
+          element={currentUser && withSuspense(
             <PhotoGallery
               userId={currentUser.id}
               folderId={galleryFolderId}
@@ -335,14 +370,14 @@ function App() {
             />
           )}
         />
-        <Route path="recycle" element={currentUser && <RecycleBin userId={currentUser.id} onBack={() => navigate('/photos')} />} />
-        <Route path="search" element={currentUser && <SmartSearch userId={currentUser.id} initialQuery={new URLSearchParams(location.search).get('q') || ''} onBack={() => navigate('/')} />} />
+        <Route path="recycle" element={currentUser && withSuspense(<RecycleBin userId={currentUser.id} onBack={() => navigate('/photos')} />)} />
+        <Route path="search" element={currentUser && withSuspense(<SmartSearch userId={currentUser.id} initialQuery={new URLSearchParams(location.search).get('q') || ''} onBack={() => navigate('/')} />)} />
         <Route path="transfer" element={<Navigate to="/transfer/upload" replace />} />
-        <Route path="transfer/:tab" element={currentUser && <TransferPanel userId={currentUser.id} folderId={galleryFolderId} />} />
-        <Route path="settings" element={currentUser && <SettingsPanel user={currentUser} onUserUpdated={setCurrentUser} />} />
-        <Route path="membership" element={currentUser && <Membership userId={currentUser.id} isMember={currentUser.isMember} onMembershipUpdated={handleMembershipUpdated} />} />
-        <Route path="profile" element={currentUser && <ProfilePanel user={currentUser} />} />
-        <Route path="about" element={<AboutPanel />} />
+        <Route path="transfer/:tab" element={currentUser && withSuspense(<TransferPanel userId={currentUser.id} folderId={galleryFolderId} />)} />
+        <Route path="settings" element={currentUser && withSuspense(<SettingsPanel user={currentUser} onUserUpdated={setCurrentUser} />)} />
+        <Route path="membership" element={currentUser && withSuspense(<Membership userId={currentUser.id} isMember={currentUser.isMember} onMembershipUpdated={handleMembershipUpdated} />)} />
+        <Route path="profile" element={currentUser && withSuspense(<ProfilePanel user={currentUser} />)} />
+        <Route path="about" element={withSuspense(<AboutPanel />)} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
