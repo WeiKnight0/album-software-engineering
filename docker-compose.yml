@@ -16,7 +16,10 @@ services:
     env_file:
       - ./album-backend/.env
     environment:
-      SPRING_DATASOURCE_URL: jdbc:sqlite:/data/photo.db
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:?MYSQL_DATABASE is required}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:?MYSQL_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       UPLOAD_BASE_PATH: /data/uploads
       UPLOAD_TEMP_PATH: /data/uploads/temp
       AVATAR_BASE_PATH: /data/avatars
@@ -26,6 +29,8 @@ services:
     volumes:
       - ./data/backend:/data
     depends_on:
+      mysql:
+        condition: service_healthy
       face-recognition:
         condition: service_started
       rag:
@@ -39,7 +44,10 @@ services:
     env_file:
       - ./album-backend/.env
     environment:
-      SPRING_DATASOURCE_URL: jdbc:sqlite:/data/photo.db
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:?MYSQL_DATABASE is required}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:?MYSQL_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       UPLOAD_BASE_PATH: /data/uploads
       UPLOAD_TEMP_PATH: /data/uploads/temp
       AVATAR_BASE_PATH: /data/avatars
@@ -50,11 +58,28 @@ services:
     volumes:
       - ./data/backend:/data
     depends_on:
+      mysql:
+        condition: service_healthy
       face-recognition:
         condition: service_started
       rag:
         condition: service_started
     command: ["--app.bootstrap.enabled=true", "--server.port=0"]
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE is required}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER is required}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   face-recognition:
     build:
