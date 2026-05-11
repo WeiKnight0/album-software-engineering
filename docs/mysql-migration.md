@@ -11,9 +11,20 @@ MYSQL_DATABASE=album
 MYSQL_USER=album_app
 MYSQL_PASSWORD=change_me_to_a_strong_password
 MYSQL_ROOT_PASSWORD=change_me_to_another_strong_password
+
+INIT_ADMIN_USERNAME=superadmin
+INIT_ADMIN_PASSWORD=change_me_to_a_strong_admin_password
+INIT_ADMIN_EMAIL=superadmin@example.com
+INIT_ADMIN_NICKNAME=Super Admin
+INIT_USER_USERNAME=normaluser
+INIT_USER_PASSWORD=change_me_to_a_strong_user_password
+INIT_USER_EMAIL=user@example.com
+INIT_USER_NICKNAME=Normal User
 ```
 
 `docker-compose.yml` 不会把 MySQL 端口暴露到宿主机。后端通过 Docker 内部网络连接 `mysql:3306`。
+
+`INIT_ADMIN_PASSWORD` 和 `INIT_USER_PASSWORD` 写明文初始密码即可。初始化脚本会在临时 Python 容器内生成 bcrypt 哈希并写入数据库，数据库不会保存明文密码。
 
 2. 启动服务：
 
@@ -21,11 +32,13 @@ MYSQL_ROOT_PASSWORD=change_me_to_another_strong_password
 docker compose up --build
 ```
 
-3. 如需初始化默认用户：
+3. 如需初始化默认角色、权限和初始用户：
 
 ```bash
 docker compose --profile init up init-users
 ```
+
+这个初始化不再启动后端应用，而是使用临时 Python 容器执行 `scripts/init-mysql.py`。如果用户已存在，脚本不会覆盖已有密码。权限表的 `name` 字段保存 i18n key，例如 `permission.user.view`，前端再映射成中文展示文案。
 
 ## 从 SQLite 迁移数据到 MySQL
 

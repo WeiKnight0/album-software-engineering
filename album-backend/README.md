@@ -1,6 +1,6 @@
 # Album Backend
 
-`album-backend` 是主业务后端，基于 Spring Boot + SQLite，负责用户、图片、文件夹、回收站、人脸相册和 RAG 集成。
+`album-backend` 是主业务后端，基于 Spring Boot + JPA，负责用户、图片、文件夹、回收站、人脸相册和 RAG 集成。Docker Compose 默认连接 MySQL，非 Docker 本地运行默认仍可使用 SQLite。
 
 ## 主要能力
 
@@ -40,7 +40,10 @@ cp .env.example .env
 
 ### 主要配置项
 
-- `SPRING_DATASOURCE_URL`: SQLite 数据库路径
+- `SPRING_DATASOURCE_URL`: 数据库连接 URL
+- `SPRING_DATASOURCE_USERNAME`: 数据库用户名
+- `SPRING_DATASOURCE_PASSWORD`: 数据库密码
+- `SPRING_DATASOURCE_DRIVER_CLASS_NAME`: JDBC Driver 类名
 - `UPLOAD_BASE_PATH`: 原图存储根目录
 - `UPLOAD_TEMP_PATH`: 上传临时目录
 - `FACE_MODEL_ENABLED`: 是否启用人脸识别集成
@@ -59,7 +62,10 @@ cp .env.example .env
 
 在 Docker Compose 中，以下值会固定覆盖为容器内地址：
 
-- `SPRING_DATASOURCE_URL=jdbc:sqlite:/data/photo.db`
+- `SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}...`
+- `SPRING_DATASOURCE_USERNAME=${MYSQL_USER}`
+- `SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}`
+- `SPRING_DATASOURCE_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver`
 - `UPLOAD_BASE_PATH=/data/uploads`
 - `UPLOAD_TEMP_PATH=/data/uploads/temp`
 - `FACE_MODEL_BASE_URL=http://face-recognition:8001`
@@ -73,33 +79,32 @@ docker compose build backend
 docker compose up -d backend
 ```
 
-## 默认账号初始化
+## 初始数据初始化
 
-后端不再在普通启动流程中自动创建默认用户。首次部署后执行：
-
-```bash
-./scripts/init-users.sh
-```
-
-脚本会幂等创建 RBAC 基础角色、权限、默认超级管理员和普通非会员用户。
-
-生产环境建议通过环境变量覆盖默认账号密码：
+后端不再负责初始化默认用户、角色和权限。Docker 环境下，先启动服务让后端创建表结构：
 
 ```bash
-INIT_ADMIN_USERNAME=admin \
-INIT_ADMIN_PASSWORD='change-this-admin-password' \
-INIT_ADMIN_EMAIL=admin@example.com \
-INIT_ADMIN_NICKNAME='Admin' \
-INIT_USER_USERNAME=demo \
-INIT_USER_PASSWORD='change-this-user-password' \
-INIT_USER_EMAIL=demo@example.com \
-INIT_USER_NICKNAME='Demo User' \
-./scripts/init-users.sh
+docker compose up -d --build
 ```
 
-未设置环境变量时，脚本会使用以下开发默认账号：
+然后在项目根目录 `.env` 中配置初始账号：
 
-```text
-super admin: superadmin / admin123456
-normal user: normaluser / user123456
+```env
+INIT_ADMIN_USERNAME=superadmin
+INIT_ADMIN_PASSWORD=change_me_to_a_strong_admin_password
+INIT_ADMIN_EMAIL=superadmin@example.com
+INIT_ADMIN_NICKNAME=Super Admin
+
+INIT_USER_USERNAME=normaluser
+INIT_USER_PASSWORD=change_me_to_a_strong_user_password
+INIT_USER_EMAIL=user@example.com
+INIT_USER_NICKNAME=Normal User
 ```
+
+执行初始化：
+
+```bash
+docker compose --profile init up init-users
+```
+
+初始化由临时 Python 容器执行 `scripts/init-mysql.py`，不是由后端应用执行。脚本会把明文初始密码转换成 bcrypt hash 后写入数据库；已有用户不会被覆盖密码。

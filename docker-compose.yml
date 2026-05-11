@@ -39,32 +39,25 @@ services:
   init-users:
     profiles:
       - init
-    build:
-      context: ./album-backend
-    env_file:
-      - ./album-backend/.env
+    image: python:3.12-slim
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:?MYSQL_DATABASE is required}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:?MYSQL_USER is required}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
-      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
-      UPLOAD_BASE_PATH: /data/uploads
-      UPLOAD_TEMP_PATH: /data/uploads/temp
-      AVATAR_BASE_PATH: /data/avatars
-      FACE_MODEL_BASE_URL: http://face-recognition:8001
-      FACE_MODEL_COVERS_DIR: /data/covers
-      RAG_BASE_URL: http://rag:8003
-      app.bootstrap.enabled: "true"
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE is required}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER is required}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      INIT_ADMIN_USERNAME: ${INIT_ADMIN_USERNAME:?INIT_ADMIN_USERNAME is required}
+      INIT_ADMIN_PASSWORD: ${INIT_ADMIN_PASSWORD:?INIT_ADMIN_PASSWORD is required}
+      INIT_ADMIN_EMAIL: ${INIT_ADMIN_EMAIL:?INIT_ADMIN_EMAIL is required}
+      INIT_ADMIN_NICKNAME: ${INIT_ADMIN_NICKNAME:?INIT_ADMIN_NICKNAME is required}
+      INIT_USER_USERNAME: ${INIT_USER_USERNAME:?INIT_USER_USERNAME is required}
+      INIT_USER_PASSWORD: ${INIT_USER_PASSWORD:?INIT_USER_PASSWORD is required}
+      INIT_USER_EMAIL: ${INIT_USER_EMAIL:?INIT_USER_EMAIL is required}
+      INIT_USER_NICKNAME: ${INIT_USER_NICKNAME:?INIT_USER_NICKNAME is required}
     volumes:
-      - ./data/backend:/data
+      - ./scripts:/scripts:ro
     depends_on:
       mysql:
         condition: service_healthy
-      face-recognition:
-        condition: service_started
-      rag:
-        condition: service_started
-    command: ["--app.bootstrap.enabled=true", "--server.port=0"]
+    command: ["sh", "-c", "pip install --no-cache-dir pymysql bcrypt && python /scripts/init-mysql.py"]
 
   mysql:
     image: mysql:8.4

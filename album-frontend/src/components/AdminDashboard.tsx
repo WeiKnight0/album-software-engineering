@@ -48,6 +48,20 @@ interface AdminPermission {
   module: string;
 }
 
+const permissionLabels: Record<string, string> = {
+  'permission.user.view': '查看用户',
+  'permission.user.create': '创建用户',
+  'permission.user.update': '更新用户',
+  'permission.role.view': '查看角色',
+  'permission.role.assign': '分配角色',
+  'permission.log.view': '查看日志',
+  'permission.log.export': '导出日志',
+  'permission.task.view': '查看任务',
+  'permission.task.export': '导出任务',
+};
+
+const permissionLabel = (permission: AdminPermission) => permissionLabels[permission.name] || permission.name;
+
 type AdminView = 'home' | 'users' | 'permissions' | 'logs' | 'tasks' | 'settings' | 'about';
 
 const adminPathToView: Record<string, AdminView> = {
@@ -510,7 +524,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onLogout, 
                 value={selectedAdminPermissions}
                 disabled={!isSuperAdmin || !canAssignRoles}
                 options={permissions.map(permission => ({
-                  label: `${permission.name} (${permission.code})`,
+                  label: `${permissionLabel(permission)} (${permission.code})`,
                   value: permission.code,
                 }))}
                 onChange={(values) => setSelectedAdminPermissions(values as string[])}

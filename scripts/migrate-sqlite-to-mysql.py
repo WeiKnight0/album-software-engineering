@@ -39,6 +39,10 @@ PREFERRED_TABLE_ORDER = [
 
 SKIP_TABLES = {"refresh_token"}
 
+TABLE_NAME_MAP = {
+    "User": "user",
+}
+
 
 def quote(identifier: str) -> str:
     return "`" + identifier.replace("`", "``") + "`"
@@ -78,8 +82,9 @@ def batched(items: list[tuple], size: int) -> Iterable[list[tuple]]:
 
 
 def migrate_table(sqlite_conn, mysql_conn, database: str, table: str, batch_size: int) -> int:
+    target_table = TABLE_NAME_MAP.get(table, table)
     source_columns = sqlite_columns(sqlite_conn, table)
-    target_columns = mysql_columns(mysql_conn, database, table)
+    target_columns = mysql_columns(mysql_conn, database, target_table)
     columns = [column for column in source_columns if column in target_columns]
     if not columns:
         print(f"skip {table}: no matching target table/columns")
@@ -92,13 +97,13 @@ def migrate_table(sqlite_conn, mysql_conn, database: str, table: str, batch_size
         return 0
 
     insert_sql = (
-        f"insert into {quote(table)} ({', '.join(quote(column) for column in columns)}) "
+        f"insert into {quote(target_table)} ({', '.join(quote(column) for column in columns)}) "
         f"values ({', '.join(['%s'] * len(columns))})"
     )
     with mysql_conn.cursor() as cursor:
         for chunk in batched(rows, batch_size):
             cursor.executemany(insert_sql, chunk)
-    print(f"migrated {table}: {len(rows)} rows")
+    print(f"migrated {table} -> {target_table}: {len(rows)} rows")
     return len(rows)
 
 
