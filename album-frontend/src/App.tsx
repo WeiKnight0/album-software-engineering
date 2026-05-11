@@ -174,7 +174,7 @@ const UserLayout: React.FC<UserLayoutProps> = ({ currentUser, onLogout }) => {
           </button>
           <button className={`biophilic-sidebar-item ${location.pathname.startsWith('/transfer') ? 'active' : ''}`} onClick={() => navigate('/transfer/upload')}>
             <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}><SwapOutlined /></span>
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>传输记录</span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>传输任务</span>
           </button>
         </nav>
 

@@ -1,55 +1,38 @@
 # Album RAG
 
-`album-rag` 是相册项目里的图片检索服务。它负责把图片描述转成向量，写入本地 Qdrant，并提供搜索和聊天接口给主后端调用。
+`album-rag` 是相册项目里的内部向量检索服务。它接收主后端传入的图片描述或搜索文本，完成文本向量化、Qdrant 写入、Qdrant 检索和索引删除。
 
 ## 职责
 
-- 接收主后端传来的图片路径和用户信息
-- 生成图片描述
+- 接收主后端传来的图片描述、图片 ID 和用户 ID
 - 使用 `sentence-transformers` 做文本向量化
 - 把向量写入本地 Qdrant
-- 提供搜索、聊天、索引接口
+- 按 `user_id` 过滤并搜索向量
+- 删除指定用户下指定图片的向量索引
+
+LLM 图片描述和 AI 对话生成由 `album-backend` 负责，`album-rag` 不持有生产 LLM API Key。
 
 ## 目录
 
 ```text
 album-rag/
 ├── src/rag/           核心服务代码
-├── dev/               调试脚本和测试前端
 ├── Dockerfile
 ├── pyproject.toml
-├── uv.lock
 └── .env.example
 ```
 
 ## 配置文件
 
-`album-rag/.env` 是 `rag` 服务的配置文件。
-
-首次可基于模板创建：
-
-```bash
-cp .env.example .env
-```
-
-`.env.example` 用来说明 `album-rag` 需要哪些配置项。
+`album-rag/.env.example` 仅说明本服务支持的环境变量。Docker Compose 运行时由 `docker-compose.yml` 显式注入生产所需配置，并从 `album-backend/.env` 读取 `INTERNAL_SERVICE_TOKEN`。
 
 ### 主要配置项
 
-- `APP_ENV`: 运行环境标记
-- `ARTIFACTS_DIR`: 调试脚本输出目录
-- `OPENAI_API_KEY`: 图片描述使用的 API Key
-- `OPENAI_BASE_URL`: 兼容 OpenAI 的接口地址
-- `OPENAI_MODEL`: 图片描述使用的模型名
-- `OPENAI_MAX_TOKENS`: 图片描述最大输出 token
+- `INTERNAL_SERVICE_TOKEN`: 内部服务鉴权 token
 - `EMBEDDING_MODEL`: 向量模型路径或模型名
 - `EMBEDDING_DEVICE`: `auto`、`cpu`、`cuda`、`mps`
 - `QDRANT_PATH`: 本地 Qdrant 数据目录
 - `COLLECTION_NAME`: 向量集合名
-- `IMAGE_DIR`: 图片导入目录
-- `BATCH_SIZE`: 导入批次大小
-- `SKIP_EXISTING`: 是否跳过已导入图片
-- `DEFAULT_USER_ID`: 调试导入时写入的默认用户 ID
 
 ### 容器内固定值
 
@@ -72,4 +55,4 @@ docker compose up -d rag
 
 - 主后端通过 HTTP 调用本服务
 - 持久化数据位于 `data/rag/`
-- 正式入口不是 CLI，而是 `rag.main:app`
+- 服务入口是 `rag.main:app`

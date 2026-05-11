@@ -76,7 +76,7 @@
 - **前端 → Nginx → 后端**：HTTP REST，JWT Bearer 认证
 - **后端 → 人脸服务**：HTTP REST，Bearer Token 内部鉴权
 - **后端 → RAG 服务**：HTTP REST，Bearer Token 内部鉴权
-- **后端 → LLM API**：HTTP REST（DashScope/OpenAI 兼容），Bearer API Key
+- **后端 → LLM API**：HTTP REST（DashScope/OpenAI 兼容），Bearer API Key。生产 Web 链路中的 LLM 调用只发生在 `album-backend`，`album-rag` 不持有生产 LLM API Key。
 
 ### 1.4 数据存储
 
@@ -352,7 +352,18 @@ AiChatService.chat()
 
 **实现**：`INTERNAL_SERVICE_TOKEN` 环境变量，后端通过 `RagVectorClient` 和 `FaceModelClient` 自动注入。
 
-### 4.4 人物姓名搜索不依赖向量
+### 4.4 LLM 调用归主后端所有
+
+**决策**：生产 Web 链路中的 LLM API Key 只配置在 `album-backend`，`album-rag` 定位为纯向量服务。
+
+**理由**：
+- `album-backend` 负责业务编排，需要调用 LLM 做图片描述生成和 AI 对话回答。
+- `album-rag` 的线上职责只是文本 embedding、Qdrant 写入、Qdrant 搜索和索引删除，不需要访问外部 LLM。
+- 避免在两个服务中重复配置 LLM Key，降低密钥泄露面和维护歧义。
+
+**边界**：历史遗留的离线 CLI/调试工具链已经移除。`album-rag` 只保留生产 Web 链路需要的 FastAPI 向量接口、embedding 包装和 Qdrant 存储逻辑。
+
+### 4.5 人物姓名搜索不依赖向量
 
 **决策**：人名搜索直接查 `faces.face_name`，不走向量检索。
 
@@ -363,7 +374,7 @@ AiChatService.chat()
 
 **实现**：`FaceService.searchImagesByMentionedFaceNames()` 从用户已命名人物中提取匹配。
 
-### 4.5 AI 会话后端持久化
+### 4.6 AI 会话后端持久化
 
 **决策**：AI 聊天会话存储在后端数据库，前端不再使用 localStorage。
 
@@ -372,7 +383,7 @@ AiChatService.chat()
 - 后端持久化支持多设备同步
 - 后端控制上下文长度，避免前端传入过长历史
 
-### 4.6 前端路由级懒加载
+### 4.7 前端路由级懒加载
 
 **决策**：所有页面组件使用 `React.lazy()` + `Suspense`，首屏只加载必要代码。
 
@@ -779,6 +790,8 @@ RBAC 四表：`role` 存角色定义，`user_role` 关联用户和角色，`perm
 | GET | `/api/v1/health` | 健康检查 | 无 | - | `{status: "ok"}` |
 
 #### album-rag (`http://rag:8003`)
+
+`album-rag` 是内部向量服务。它只负责 embedding 与 Qdrant 检索，生产 Web 链路不在该服务内调用外部 LLM API。
 
 | 方法 | 路径 | 说明 | 认证 | 参数 | 返回 |
 |------|------|------|------|------|------|

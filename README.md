@@ -6,14 +6,12 @@
 
 - `.env`: Compose 级配置，主要用于 MySQL 数据库账号、初始用户账号
 - `album-backend/.env`: 主后端配置
-- `album-rag/.env`: RAG 服务配置
 
 首次启动前，基于模板创建：
 
 ```bash
 cp .env.example .env
 cp album-backend/.env.example album-backend/.env
-cp album-rag/.env.example album-rag/.env
 ```
 
 `.env.example` 用来说明各服务需要哪些配置项。
@@ -39,6 +37,26 @@ INIT_USER_NICKNAME=Normal User
 
 `MYSQL_PASSWORD` 是后端连接 MySQL 的数据库用户密码；`MYSQL_ROOT_PASSWORD` 是 MySQL root 用户密码。MySQL 不暴露宿主机端口，后端通过 Docker 内部网络连接 `mysql:3306`。
 
+`album-backend/.env` 还必须配置运行密钥：
+
+```env
+JWT_SECRET=<至少 32 字符的随机字符串>
+INTERNAL_SERVICE_TOKEN=<内部服务鉴权随机字符串>
+RAG_LLM_API_KEY=<兼容 OpenAI 的大模型 API Key>
+```
+
+可以用下面的命令生成随机密钥：
+
+```bash
+# 推荐：生成 32 字节随机值，输出为 64 位十六进制字符串
+openssl rand -hex 32
+
+# 如果系统没有 openssl，也可以使用 Python
+python3 -c 'import secrets; print(secrets.token_hex(32))'
+```
+
+分别执行两次，把其中一个填入 `JWT_SECRET`，另一个填入 `INTERNAL_SERVICE_TOKEN`。不要把 `.env` 文件提交到 Git。
+
 ## 项目结构
 
 - `album-frontend/`: React + Vite 前端
@@ -63,10 +81,9 @@ INIT_USER_NICKNAME=Normal User
 ```bash
 cp .env.example .env
 cp album-backend/.env.example album-backend/.env
-cp album-rag/.env.example album-rag/.env
 ```
 
-2. 修改 `.env`、`album-backend/.env`、`album-rag/.env` 中的密码、密钥和 API Key。
+2. 修改 `.env`、`album-backend/.env` 中的密码、密钥和 API Key。`JWT_SECRET` 和 `INTERNAL_SERVICE_TOKEN` 可使用 `openssl rand -hex 32` 生成。
 
 3. 启动 MySQL、后端、前端、识别服务和 RAG 服务：
 

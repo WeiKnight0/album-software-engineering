@@ -2,7 +2,7 @@ import React from 'react';
 import { CloudOutlined, PictureOutlined, RobotOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons';
 
 const featureItems = [
-  { icon: <PictureOutlined />, title: '照片管理', desc: '上传、分类、回收站与传输记录，让每张照片都有归处。' },
+  { icon: <PictureOutlined />, title: '照片管理', desc: '上传、分类、回收站与传输任务，让每张照片都有归处。' },
   { icon: <TeamOutlined />, title: '人物识别', desc: '自动识别人脸并归类，支持命名与合并，快速找到某个人的所有照片。' },
   { icon: <SearchOutlined />, title: '智能搜索', desc: '用自然语言描述你想找的内容，系统会从照片中找到最匹配的结果。' },
   { icon: <RobotOutlined />, title: 'AI 对话', desc: '像和朋友聊天一样询问相册内容，AI 会根据你的照片给出回答。' },

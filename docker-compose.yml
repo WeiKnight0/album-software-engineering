@@ -39,7 +39,9 @@ services:
   init-users:
     profiles:
       - init
-    image: python:3.12-slim
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.init-users
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE is required}
       MYSQL_USER: ${MYSQL_USER:?MYSQL_USER is required}
@@ -52,12 +54,9 @@ services:
       INIT_USER_PASSWORD: ${INIT_USER_PASSWORD:?INIT_USER_PASSWORD is required}
       INIT_USER_EMAIL: ${INIT_USER_EMAIL:?INIT_USER_EMAIL is required}
       INIT_USER_NICKNAME: ${INIT_USER_NICKNAME:?INIT_USER_NICKNAME is required}
-    volumes:
-      - ./scripts:/scripts:ro
     depends_on:
       mysql:
         condition: service_healthy
-    command: ["sh", "-c", "pip install --no-cache-dir pymysql bcrypt && python /scripts/init-mysql.py"]
 
   mysql:
     image: mysql:8.4
@@ -91,7 +90,6 @@ services:
       - "8003"
     env_file:
       - ./album-backend/.env
-      - ./album-rag/.env
     environment:
       QDRANT_PATH: /data/qdrant
       COLLECTION_NAME: photo_rag

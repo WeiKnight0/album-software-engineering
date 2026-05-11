@@ -34,7 +34,7 @@ RUN wget -q https://hf-mirror.com/hfd/hfd.sh -O /tmp/hfd.sh \
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml uv.lock* README.md ./
+COPY pyproject.toml README.md ./
 COPY src ./src
 
 # Install project dependencies using the configured uv index
