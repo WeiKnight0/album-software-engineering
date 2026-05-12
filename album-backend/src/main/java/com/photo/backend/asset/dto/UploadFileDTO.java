@@ -15,6 +15,11 @@ public class UploadFileDTO {
     private String tempPath;
     private String finalPath;
     private String analysisStatus;
+    private String analysisErrorMessage;
+    private String ragAnalysisStatus;
+    private String ragAnalysisErrorMessage;
+    private String faceAnalysisStatus;
+    private String faceAnalysisErrorMessage;
 
     public Long getId() {
         return id;
@@ -126,5 +131,45 @@ public class UploadFileDTO {
 
     public void setAnalysisStatus(String analysisStatus) {
         this.analysisStatus = analysisStatus;
+    }
+
+    public String getAnalysisErrorMessage() {
+        return analysisErrorMessage;
+    }
+
+    public void setAnalysisErrorMessage(String analysisErrorMessage) {
+        this.analysisErrorMessage = analysisErrorMessage;
+    }
+
+    public String getRagAnalysisStatus() {
+        return ragAnalysisStatus;
+    }
+
+    public void setRagAnalysisStatus(String ragAnalysisStatus) {
+        this.ragAnalysisStatus = ragAnalysisStatus;
+    }
+
+    public String getRagAnalysisErrorMessage() {
+        return ragAnalysisErrorMessage;
+    }
+
+    public void setRagAnalysisErrorMessage(String ragAnalysisErrorMessage) {
+        this.ragAnalysisErrorMessage = ragAnalysisErrorMessage;
+    }
+
+    public String getFaceAnalysisStatus() {
+        return faceAnalysisStatus;
+    }
+
+    public void setFaceAnalysisStatus(String faceAnalysisStatus) {
+        this.faceAnalysisStatus = faceAnalysisStatus;
+    }
+
+    public String getFaceAnalysisErrorMessage() {
+        return faceAnalysisErrorMessage;
+    }
+
+    public void setFaceAnalysisErrorMessage(String faceAnalysisErrorMessage) {
+        this.faceAnalysisErrorMessage = faceAnalysisErrorMessage;
     }
 }

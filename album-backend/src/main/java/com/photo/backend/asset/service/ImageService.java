@@ -9,7 +9,7 @@ import com.photo.backend.common.repository.FaceRepository;
 import com.photo.backend.common.repository.ImageRepository;
 import com.photo.backend.rag.service.RagVectorClient;
 import com.photo.backend.rag.service.ImageAnalysisService;
-import com.photo.backend.face.service.FaceModelClient;
+import com.photo.backend.face.service.FaceAnalysisService;
 import com.photo.backend.face.service.FaceRecognitionPersistenceService;
 import com.photo.backend.util.MetadataUtil;
 import com.photo.backend.util.ThumbnailUtil;
@@ -45,7 +45,7 @@ public class ImageService {
     private UserService userService;
 
     @Autowired
-    private FaceModelClient faceModelClient;
+    private FaceAnalysisService faceAnalysisService;
 
     @Autowired
     private FaceRecognitionPersistenceService faceRecognitionPersistenceService;
@@ -175,12 +175,21 @@ public class ImageService {
             logger.info("Membership check for user {}: isMember={}, expireAt={}, active={}",
                 userId, user.getIsMember(), user.getMembershipExpireAt(), isActiveMember);
             if (isActiveMember) {
-                byte[] fileBytes = Files.readAllBytes(dest.toPath());
-                logger.info("Calling face recognition for imageId: {}, fileSize: {}", savedImage.getId(), fileBytes.length);
-                // 直接调用模型和持久化，绕过 FaceService 代理，避免 REQUIRES_NEW 跨事务查不到数据
-                java.util.Map<String, Object> inferResult = faceModelClient.infer(userId, savedImage.getId(), fileBytes);
-                int faceCount = faceRecognitionPersistenceService.persistInferResult(userId, savedImage.getId(), fileBytes, inferResult);
-                logger.info("Face recognition completed for imageId: {}, faces found: {}", savedImage.getId(), faceCount);
+                logger.info("Queueing face recognition for imageId: {}, path: {}", savedImage.getId(), dest.getAbsolutePath());
+                imageAnalysisService.createPendingRecord(userId, savedImage.getId(), "FACE");
+                if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                    final String finalImageId = savedImage.getId();
+                    final String finalImagePath = dest.getAbsolutePath();
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            logger.info("Transaction committed, triggering face recognition for imageId={}", finalImageId);
+                            faceAnalysisService.runFaceRecognitionAsync(userId, finalImageId, finalImagePath);
+                        }
+                    });
+                } else {
+                    faceAnalysisService.runFaceRecognitionAsync(userId, savedImage.getId(), dest.getAbsolutePath());
+                }
             } else {
                 logger.info("Skip face recognition for user {}: not an active member", userId);
             }

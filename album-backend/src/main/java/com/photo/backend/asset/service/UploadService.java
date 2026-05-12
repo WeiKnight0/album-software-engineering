@@ -366,8 +366,13 @@ public class UploadService {
         dto.setErrorMsg(file.getErrorMsg());
         if (file.getImageId() != null && !file.getImageId().isBlank()) {
             try {
-                ImageAnalysis analysis = imageAnalysisRepository.findTopByImageIdAndAnalysisTypeOrderByCreatedAtDesc(file.getImageId(), "RAG").orElse(null);
-                dto.setAnalysisStatus(analysis != null ? analysis.getStatus() : "NONE");
+                ImageAnalysis ragAnalysis = imageAnalysisRepository
+                        .findTopByImageIdAndAnalysisTypeOrderByCreatedAtDesc(file.getImageId(), "RAG")
+                        .orElse(null);
+                ImageAnalysis faceAnalysis = imageAnalysisRepository
+                        .findTopByImageIdAndAnalysisTypeOrderByCreatedAtDesc(file.getImageId(), "FACE")
+                        .orElse(null);
+                setAnalysisStatus(dto, ragAnalysis, faceAnalysis);
             } catch (Exception e) {
                 logger.warn("Failed to get analysis status for imageId={}", file.getImageId());
                 dto.setAnalysisStatus("NONE");
@@ -376,5 +381,53 @@ public class UploadService {
             dto.setAnalysisStatus("NONE");
         }
         return dto;
+    }
+
+    private void setAnalysisStatus(UploadFileDTO dto, ImageAnalysis ragAnalysis, ImageAnalysis faceAnalysis) {
+        dto.setRagAnalysisStatus(ragAnalysis != null ? ragAnalysis.getStatus() : "NONE");
+        dto.setRagAnalysisErrorMessage(displayAnalysisError(ragAnalysis));
+        dto.setFaceAnalysisStatus(faceAnalysis != null ? faceAnalysis.getStatus() : "NONE");
+        dto.setFaceAnalysisErrorMessage(displayAnalysisError(faceAnalysis));
+
+        String ragStatus = dto.getRagAnalysisStatus();
+        String faceStatus = dto.getFaceAnalysisStatus();
+        if ("FAILED".equals(ragStatus) || "FAILED".equals(faceStatus)) {
+            dto.setAnalysisStatus("FAILED");
+            dto.setAnalysisErrorMessage(buildAnalysisErrorMessage(ragAnalysis, faceAnalysis));
+        } else if (isRunning(ragStatus) || isRunning(faceStatus)) {
+            dto.setAnalysisStatus("PROCESSING");
+        } else if ("SUCCESS".equals(ragStatus) || "SUCCESS".equals(faceStatus)) {
+            dto.setAnalysisStatus("SUCCESS");
+        } else {
+            dto.setAnalysisStatus("NONE");
+        }
+    }
+
+    private boolean isRunning(String status) {
+        return "PENDING".equals(status) || "PROCESSING".equals(status);
+    }
+
+    private String buildAnalysisErrorMessage(ImageAnalysis ragAnalysis, ImageAnalysis faceAnalysis) {
+        java.util.List<String> errors = new java.util.ArrayList<>();
+        if (ragAnalysis != null && "FAILED".equals(ragAnalysis.getStatus())) {
+            errors.add("RAG分析失败: " + displayAnalysisError(ragAnalysis));
+        }
+        if (faceAnalysis != null && "FAILED".equals(faceAnalysis.getStatus())) {
+            errors.add("人脸识别失败: " + displayAnalysisError(faceAnalysis));
+        }
+        return String.join("; ", errors);
+    }
+
+    private String displayAnalysisError(ImageAnalysis analysis) {
+        if (analysis == null || !"FAILED".equals(analysis.getStatus())) {
+            return null;
+        }
+        if ("FACE".equals(analysis.getAnalysisType())) {
+            return "人脸识别服务暂时不可用，请稍后重试";
+        }
+        if ("RAG".equals(analysis.getAnalysisType())) {
+            return "图片内容分析服务暂时不可用，请检查 LLM 配置或稍后重试";
+        }
+        return "分析服务暂时不可用，请稍后重试";
     }
 }

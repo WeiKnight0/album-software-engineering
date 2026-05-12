@@ -28,6 +28,11 @@ interface UploadFileItem {
   imageId: string | null;
   errorMsg: string | null;
   analysisStatus: string;
+  analysisErrorMessage?: string | null;
+  ragAnalysisStatus?: string | null;
+  ragAnalysisErrorMessage?: string | null;
+  faceAnalysisStatus?: string | null;
+  faceAnalysisErrorMessage?: string | null;
 }
 
 interface UploadTask {
@@ -88,6 +93,43 @@ const getAnalysisSummary = (files: UploadFileItem[]) => {
   if (processing > 0) return { status: 'PROCESSING', text: `${success}/${total} 已完成` };
   if (success === total) return { status: 'SUCCESS', text: '全部完成' };
   return { status: 'NONE', text: '未分析' };
+};
+
+const getAnalysisDetail = (file: UploadFileItem) => {
+  const details: string[] = [];
+  if (file.ragAnalysisStatus) {
+    details.push(`RAG: ${ANALYSIS_MAP[file.ragAnalysisStatus]?.label || file.ragAnalysisStatus}`);
+  }
+  if (file.faceAnalysisStatus) {
+    details.push(`人脸: ${ANALYSIS_MAP[file.faceAnalysisStatus]?.label || file.faceAnalysisStatus}`);
+  }
+  if (file.analysisErrorMessage) {
+    details.push(file.analysisErrorMessage);
+  }
+  return details.join('；');
+};
+
+const AnalysisMiniTag: React.FC<{ label: string; status?: string | null; error?: string | null }> = ({ label, status, error }) => {
+  const normalizedStatus = status || 'NONE';
+  const style = ANALYSIS_MAP[normalizedStatus] || ANALYSIS_MAP['NONE'];
+  return (
+    <Tag
+      title={error || undefined}
+      style={{
+        margin: 0,
+        fontSize: 10,
+        color: style.color,
+        background: style.bg,
+        borderColor: `${style.color}30`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 3,
+      }}
+    >
+      {style.spinning && <Spin size="small" style={{ fontSize: 9 }} />}
+      {label}: {style.label}
+    </Tag>
+  );
 };
 
 const UploadTaskPanel: React.FC<UploadTaskPanelProps> = ({ userId, folderId }) => {
@@ -418,6 +460,7 @@ const FileRow: React.FC<{
   onRetry: (taskId: string, fileIndex: number) => void;
 }> = ({ file, taskId, formatFileSize, onRetry }) => {
   const analysis = ANALYSIS_MAP[file.analysisStatus] || ANALYSIS_MAP['NONE'];
+  const analysisDetail = getAnalysisDetail(file);
   return (
     <div
       style={{
@@ -441,6 +484,11 @@ const FileRow: React.FC<{
             {file.errorMsg}
           </span>
         )}
+        {file.analysisStatus === 'FAILED' && file.analysisErrorMessage && (
+          <span style={{ color: '#c45c48', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 280 }} title={file.analysisErrorMessage}>
+            {file.analysisErrorMessage}
+          </span>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         {file.status === 4 && (
@@ -448,7 +496,10 @@ const FileRow: React.FC<{
             <RedoOutlined />
           </button>
         )}
+        <AnalysisMiniTag label="RAG" status={file.ragAnalysisStatus} error={file.ragAnalysisErrorMessage} />
+        <AnalysisMiniTag label="人脸" status={file.faceAnalysisStatus} error={file.faceAnalysisErrorMessage} />
         <Tag
+          title={analysisDetail || undefined}
           style={{
             margin: 0,
             fontSize: 11,

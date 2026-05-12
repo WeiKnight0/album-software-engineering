@@ -116,7 +116,7 @@ com.photo.backend
 │   │   ├── UploadController       # 上传任务管理
 │   │   └── DownloadController     # 下载任务管理
 │   ├── service/
-│   │   ├── ImageService           # 图片存储、缩略图、回收站、人脸识别触发
+│   │   ├── ImageService           # 图片存储、缩略图、回收站、分析任务触发
 │   │   ├── FolderService          # 文件夹层级管理
 │   │   ├── UploadService          # 上传任务进度跟踪
 │   │   └── DownloadService        # 下载任务进度跟踪
@@ -130,6 +130,7 @@ com.photo.backend
 │   │   └── FaceController         # 人脸列表、命名、合并、删除、搜索
 │   └── service/
 │       ├── FaceService                  # 人脸业务编排（入口）
+│       ├── FaceAnalysisService          # 人脸识别异步状态编排
 │       ├── FaceModelClient              # 调用人脸推理服务
 │       ├── FaceRecognitionPersistenceService  # 推理结果持久化
 │       ├── FaceRemarkService            # 人物命名
@@ -144,7 +145,7 @@ com.photo.backend
 │   │   ├── RagService             # RAG 编排：检索+人名匹配+LLM
 │   │   ├── RagLLMClient           # LLM API 调用（图片分析+对话生成）
 │   │   ├── RagVectorClient        # RAG 向量服务调用
-│   │   └── ImageAnalysisService   # 向量索引状态管理
+│   │   └── ImageAnalysisService   # RAG 图片分析/向量索引状态管理
 │   ├── entity/
 │   │   └── RagPerformanceLog      # RAG 性能日志
 │   └── repository/
@@ -204,8 +205,9 @@ com.photo.backend
 ```
 admin ──→ user (UserService, RbacService, CurrentUserService)
 asset ──→ user (UserService)
-asset ──→ face (FaceService, FaceModelClient)
+asset ──→ face (FaceAnalysisService)
 asset ──→ rag  (RagVectorClient, ImageAnalysisService)
+face  ──→ face-recognition (FaceModelClient)
 face  ──→ common (实体/仓库)
 rag   ──→ face (FaceService, 人名搜索)
 rag   ──→ asset (ImageService, 图片查询)
@@ -235,23 +237,31 @@ ImageService.uploadImage()
     ├── 5. 生成缩略图 → uploads/user_{id}/thumbnails/{uuid}_thumb.{ext}
     ├── 6. 写入 Image 表
     │
-    ├── [会员] 7. 人脸检测与持久化
-    │   ├── FaceModelClient.infer() → 调用 face-recognition 服务
-    │   ├── FaceRecognitionPersistenceService.persistInferResult()
-    │   │   ├── 比对现有 face embedding（余弦距离 < 0.5 → 匹配）
-    │   │   ├── 新 face → 创建 Face 记录 + 裁剪封面
-    │   │   └── 写入 FaceAppearance 记录
-    │   └── 同步执行，确保事务内完成
+    ├── [会员] 7. 创建分析记录
+    │   ├── ImageAnalysis(type=FACE) → PENDING 状态
+    │   └── ImageAnalysis(type=RAG)  → PENDING 状态
     │
-    ├── [会员] 8. 向量索引（异步）
-    │   ├── ImageAnalysisService.createPendingRecord() → PENDING 状态
-    │   ├── TransactionSynchronization.afterCommit() → 事务提交后触发
+    ├── [会员] 8. 事务提交后启动异步分析
+    │   ├── TransactionSynchronization.afterCommit()
+    │   ├── FaceAnalysisService.runFaceRecognitionAsync()
+    │   │   ├── FACE: PENDING → PROCESSING
+    │   │   ├── FaceService.onImageUploaded()
+    │   │   ├── FaceModelClient.infer() → 调用 face-recognition 服务
+    │   │   ├── FaceRecognitionPersistenceService.persistInferResult()
+    │   │   │   ├── 比对现有 face embedding（余弦距离 < 0.5 → 匹配）
+    │   │   │   ├── 新 face → 创建 Face 记录 + 裁剪封面
+    │   │   │   └── 写入 FaceAppearance 记录
+    │   │   └── FACE: SUCCESS / FAILED
     │   └── ImageAnalysisService.runVectorIndexAsync()
+    │       ├── RAG: PENDING → PROCESSING
     │       ├── RagLLMClient.analyzeImage() → LLM 描述图片
-    │       └── RagVectorClient.index() → 写入 Qdrant
+    │       ├── RagVectorClient.index() → 写入 Qdrant
+    │       └── RAG: SUCCESS / FAILED
     │
     └── 9. 更新用户存储用量 (UserService.updateStorageUsed)
 ```
+
+会员上传后的 `FACE` 与 `RAG` 分析均为异步任务。上传接口返回不等待模型完成；前端通过上传任务轮询展示综合状态和子状态。综合状态规则：任一子任务失败则整体失败，任一子任务处于 `PENDING`/`PROCESSING` 则整体处理中，两个子任务均成功则整体完成。后端日志保留底层异常，返回给前端的错误信息使用用户友好文案。
 
 ### 3.2 智能搜索
 
@@ -543,13 +553,15 @@ AiChatService.chat()
 | `image_analysis_id` | INTEGER | PK, AUTO INCREMENT | |
 | `image_id` | VARCHAR(36) | NOT NULL, FK→Image | |
 | `user_id` | INTEGER | NOT NULL | |
-| `analysis_type` | VARCHAR(20) | NOT NULL, DEFAULT 'VECTOR' | 分析类型 |
-| `status` | VARCHAR(20) | NOT NULL, DEFAULT 'PENDING' | PENDING/PROCESSING/DONE/FAILED |
-| `error_message` | VARCHAR(500) | | |
+| `analysis_type` | VARCHAR(20) | NOT NULL, DEFAULT 'VECTOR' | 分析类型：`RAG` / `FACE` |
+| `status` | VARCHAR(20) | NOT NULL, DEFAULT 'PENDING' | `PENDING` / `PROCESSING` / `SUCCESS` / `FAILED` |
+| `error_message` | VARCHAR(500) | | 用户友好错误信息，底层异常只写日志 |
 | `created_at` | DATETIME | | |
 | `updated_at` | DATETIME | | |
 
 **唯一约束**：`uq_image_analysis(image_id, analysis_type)`
+
+同一张会员图片通常有两条分析记录：`RAG` 负责图片描述和向量索引，`FACE` 负责人脸检测、人物聚类和封面生成。
 
 #### ai_chat_session
 
@@ -678,7 +690,7 @@ RBAC 四表：`role` 存角色定义，`user_role` 关联用户和角色，`perm
 | GET | `/api/images/stats` | 统计 | - | `{totalImages, totalStorage}` |
 | GET | `/api/images/{id}/download` | 下载原图 | Path: `id` | 文件二进制 |
 | GET | `/api/images/{id}/thumbnail` | 获取缩略图 | Path: `id` | 图片二进制 |
-| GET | `/api/images/{id}/analysis` | 获取分析状态 | Path: `id` | `{status, errorMessage}` |
+| GET | `/api/images/{id}/analysis` | 获取综合分析状态 | Path: `id` | `{status, errorMessage, rag, face}` |
 
 #### FolderController (`/api/folders`)
 
@@ -704,6 +716,8 @@ RBAC 四表：`role` 存角色定义，`user_role` 关联用户和角色，`perm
 | DELETE | `/api/upload/tasks/{taskId}` | 取消 | Path: `taskId` | `Void` |
 | POST | `/api/upload/tasks/{taskId}/retry` | 重试 | Path: `taskId` | `Void` |
 | DELETE | `/api/upload/tasks/{taskId}/cleanup` | 清理临时文件 | Path: `taskId` | `Void` |
+
+`UploadFileDTO` 会返回综合分析状态和两个子任务状态：`analysisStatus`, `analysisErrorMessage`, `ragAnalysisStatus`, `ragAnalysisErrorMessage`, `faceAnalysisStatus`, `faceAnalysisErrorMessage`。综合状态由后端按 `RAG` 与 `FACE` 聚合，前端同时展示综合状态和子状态，避免单个子任务失败被误解为所有任务失败。
 
 #### DownloadController (`/api/downloads`)
 

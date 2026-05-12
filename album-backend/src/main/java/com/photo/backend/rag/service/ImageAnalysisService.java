@@ -13,6 +13,7 @@ import java.util.Optional;
 @Service
 public class ImageAnalysisService {
     private static final Logger logger = LoggerFactory.getLogger(ImageAnalysisService.class);
+    private static final String USER_FACING_ERROR = "图片内容分析服务暂时不可用，请检查 LLM 配置或稍后重试";
 
     @Autowired
     private ImageAnalysisRepository imageAnalysisRepository;
@@ -66,6 +67,7 @@ public class ImageAnalysisService {
         }
 
         record.setStatus("PROCESSING");
+        record.setErrorMessage(null);
         imageAnalysisRepository.save(record);
         logger.info("[Async] Status set to PROCESSING for imageId={} (took {}ms)", imageId, System.currentTimeMillis() - t0);
 
@@ -79,24 +81,28 @@ public class ImageAnalysisService {
                 logger.info("[Async] ===== SUCCESS vector index for imageId={}, totalTime={}ms, httpTime={}ms =====", imageId, System.currentTimeMillis() - t0, httpMs);
             } else {
                 record.setStatus("FAILED");
-                record.setErrorMessage("RAG index returned failure");
+                record.setErrorMessage(USER_FACING_ERROR);
                 logger.warn("[Async] ===== FAILED vector index for imageId={}, totalTime={}ms, httpTime={}ms, reason=RAG returned failure =====", imageId, System.currentTimeMillis() - t0, httpMs);
             }
         } catch (Exception e) {
             record.setStatus("FAILED");
-            String errMsg = e.getMessage();
-            record.setErrorMessage(errMsg);
-            logger.error("[Async] ===== FAILED vector index for imageId={}, totalTime={}ms, exception={} =====", imageId, System.currentTimeMillis() - t0, errMsg, e);
+            record.setErrorMessage(USER_FACING_ERROR);
+            logger.error("[Async] ===== FAILED vector index for imageId={}, totalTime={}ms, exception={} =====", imageId, System.currentTimeMillis() - t0, e.getMessage(), e);
         }
 
         imageAnalysisRepository.save(record);
     }
 
     public void deleteByImageId(String imageId) {
-        var opt = imageAnalysisRepository.findTopByImageIdAndAnalysisTypeOrderByCreatedAtDesc(imageId, "RAG");
-        opt.ifPresent(record -> {
-            imageAnalysisRepository.delete(record);
-            logger.info("Deleted analysis record for imageId={}", imageId);
-        });
+        imageAnalysisRepository.findTopByImageIdAndAnalysisTypeOrderByCreatedAtDesc(imageId, "RAG")
+                .ifPresent(record -> {
+                    imageAnalysisRepository.delete(record);
+                    logger.info("Deleted RAG analysis record for imageId={}", imageId);
+                });
+        imageAnalysisRepository.findTopByImageIdAndAnalysisTypeOrderByCreatedAtDesc(imageId, "FACE")
+                .ifPresent(record -> {
+                    imageAnalysisRepository.delete(record);
+                    logger.info("Deleted FACE analysis record for imageId={}", imageId);
+                });
     }
 }

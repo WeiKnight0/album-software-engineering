@@ -70,7 +70,9 @@ python3 -c 'import secrets; print(secrets.token_hex(32))'
 - Docker
 - Docker Compose
 - 可用的 `80` 端口
-- 如需 RAG 聊天，需要配置兼容 OpenAI 的 API Key
+- 如需 RAG 聊天或上传后的图片内容分析，需要配置兼容 OpenAI 的 API Key
+
+会员上传后的自动分析包含两条异步任务：`FACE` 人脸识别和 `RAG` 图片内容分析/向量索引。前端上传任务面板会同时显示综合状态和两个子状态；如果其中一个服务不可用，只会对应子状态失败，上传本身仍可完成。
 
 ## 启动方式一：全新启动（没有初始化数据库）
 

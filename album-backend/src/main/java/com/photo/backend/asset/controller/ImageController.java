@@ -279,25 +279,74 @@ public class ImageController {
         try {
             Integer userId = currentUserService.getCurrentUserId();
             imageService.getImageById(id, userId);
-            Optional<ImageAnalysis> opt = imageAnalysisRepository.findTopByImageIdAndAnalysisTypeOrderByCreatedAtDesc(id, "RAG");
-            if (opt.isEmpty()) {
+            Optional<ImageAnalysis> ragOpt = imageAnalysisRepository.findTopByImageIdAndAnalysisTypeOrderByCreatedAtDesc(id, "RAG");
+            Optional<ImageAnalysis> faceOpt = imageAnalysisRepository.findTopByImageIdAndAnalysisTypeOrderByCreatedAtDesc(id, "FACE");
+            if (ragOpt.isEmpty() && faceOpt.isEmpty()) {
                 return ResponseEntity.ok(ApiResponse.success(Map.of(
                     "status", "NONE",
                     "message", "No analysis record found"
                 )));
             }
 
-            ImageAnalysis record = opt.get();
+            ImageAnalysis ragRecord = ragOpt.orElse(null);
+            ImageAnalysis faceRecord = faceOpt.orElse(null);
             Map<String, Object> result = new HashMap<>();
-            result.put("status", record.getStatus());
-            result.put("analysisType", record.getAnalysisType());
-            result.put("errorMessage", record.getErrorMessage());
-            result.put("updatedAt", record.getUpdatedAt());
+            result.put("status", aggregateStatus(ragRecord, faceRecord));
+            result.put("analysisType", "ALL");
+            result.put("errorMessage", aggregateErrorMessage(ragRecord, faceRecord));
+            result.put("rag", toAnalysisMap(ragRecord));
+            result.put("face", toAnalysisMap(faceRecord));
             return ResponseEntity.ok(ApiResponse.success(result));
         } catch (Exception e) {
             logger.error("Get analysis failed: imageId={}", id, e);
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("Failed to get analysis: " + e.getMessage(), "ANALYSIS_FAILED"));
         }
+    }
+
+    private String aggregateStatus(ImageAnalysis ragRecord, ImageAnalysis faceRecord) {
+        String ragStatus = ragRecord != null ? ragRecord.getStatus() : "NONE";
+        String faceStatus = faceRecord != null ? faceRecord.getStatus() : "NONE";
+        if ("FAILED".equals(ragStatus) || "FAILED".equals(faceStatus)) return "FAILED";
+        if ("PENDING".equals(ragStatus) || "PROCESSING".equals(ragStatus)
+                || "PENDING".equals(faceStatus) || "PROCESSING".equals(faceStatus)) return "PROCESSING";
+        if ("SUCCESS".equals(ragStatus) || "SUCCESS".equals(faceStatus)) return "SUCCESS";
+        return "NONE";
+    }
+
+    private String aggregateErrorMessage(ImageAnalysis ragRecord, ImageAnalysis faceRecord) {
+        java.util.List<String> errors = new java.util.ArrayList<>();
+        if (ragRecord != null && "FAILED".equals(ragRecord.getStatus())) {
+            errors.add("RAG分析失败: " + displayAnalysisError(ragRecord));
+        }
+        if (faceRecord != null && "FAILED".equals(faceRecord.getStatus())) {
+            errors.add("人脸识别失败: " + displayAnalysisError(faceRecord));
+        }
+        return String.join("; ", errors);
+    }
+
+    private Map<String, Object> toAnalysisMap(ImageAnalysis record) {
+        if (record == null) {
+            return Map.of("status", "NONE");
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("status", record.getStatus());
+        result.put("analysisType", record.getAnalysisType());
+        result.put("errorMessage", displayAnalysisError(record));
+        result.put("updatedAt", record.getUpdatedAt());
+        return result;
+    }
+
+    private String displayAnalysisError(ImageAnalysis record) {
+        if (record == null || !"FAILED".equals(record.getStatus())) {
+            return null;
+        }
+        if ("FACE".equals(record.getAnalysisType())) {
+            return "人脸识别服务暂时不可用，请稍后重试";
+        }
+        if ("RAG".equals(record.getAnalysisType())) {
+            return "图片内容分析服务暂时不可用，请检查 LLM 配置或稍后重试";
+        }
+        return "分析服务暂时不可用，请稍后重试";
     }
 }
